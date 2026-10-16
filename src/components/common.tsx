@@ -1,24 +1,9 @@
-import { missingOf, weekDates, type Model, type Recipe } from "../model";
-import { fmtDay } from "../lib/format";
-import { pickFor, week } from "../state/ui";
-
-const shiftWeek = (n: number) => { week.value += n; pickFor.value = null; };
+import { missingOf, type Model, type Recipe } from "../model";
 
 export function MissBadge({ m, r }: { m: Model; r: Recipe }) {
   if (!r.ing.length) return <span class="badge b-unk">brak składników</span>;
   const n = missingOf(m, r).length;
   return n === 0 ? <span class="badge b-ok">masz wszystko</span> : <span class="badge b-miss">brakuje {n}</span>;
-}
-
-export function WeekNav({ prefix = "" }: { prefix?: string }) {
-  const d = weekDates(week.value);
-  return (
-    <div class="flex items-center justify-between gap-2">
-      <button class="btn ghost" onClick={() => shiftWeek(-1)} aria-label="Poprzedni tydzień">‹</button>
-      <b>{prefix}{fmtDay(d[0])} – {fmtDay(d[6])}</b>
-      <button class="btn ghost" onClick={() => shiftWeek(1)} aria-label="Następny tydzień">›</button>
-    </div>
-  );
 }
 
 export const Empty = ({ children }: { children: preact.ComponentChildren }) => <div class="empty">{children}</div>;

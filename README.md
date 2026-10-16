@@ -1,12 +1,12 @@
 # Obiadki (recipe-planner)
 
 Mobilna apka (PWA) do moich przepisów zapisanych w Google Sheets. Pokazuje, co mogę ugotować z tego, co mam w domu,
-pozwala zaplanować tydzień i sama składa listę zakupów.
+prowadzi listę dań do ugotowania i sama składa listę zakupów.
 
 - **Przepisy:** wyszukiwarka, filtry (czas, typ, kategoria, „jeszcze nie robione”) i **„Mogę zrobić teraz”**, czyli sortowanie od najmniejszej liczby brakujących składników. Do tego **Losuj** dla dni bez pomysłu.
-- **Karta przepisu:** składniki oznaczone jako mam / brak (dotknięcie przełącza), linki do przepisu, „brakujące na listę zakupów”, dodawanie do planu, ocena i notatka.
-- **Plan:** tydzień ze śniadaniami, obiadami i kolacjami, wybieranymi z przepisów albo wpisanymi jako tekst.
-- **Zakupy:** braki do dań zaplanowanych na tydzień, pogrupowane według działów, plus pozycje dopisane ręcznie.
+- **Karta przepisu:** składniki oznaczone jako mam / brak (dotknięcie przełącza), linki do przepisu, „brakujące na listę zakupów”, dodawanie do listy do ugotowania, ocena i notatka.
+- **Plan (do ugotowania):** lista dań bez przypisanych dni, z przepisów albo wpisanych jako tekst. Odhaczenie oznacza danie jako ugotowane.
+- **Zakupy:** braki do wszystkich dań z listy do ugotowania, pogrupowane według działów, plus pozycje dopisane ręcznie.
 - **Spiżarnia:** co mam w domu. Pozycje „zawsze mam” (sól, olej…) nie liczą się jako braki.
 
 Działa offline: dane są zapisane w telefonie, a zmiany czekają w kolejce i wysyłają się po powrocie sieci.

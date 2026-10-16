@@ -37,7 +37,7 @@ describe("App with demo data", () => {
     renderApp();
     await screen.findByText("Carbonara");
     fireEvent.click(screen.getByText("Plan"));
-    expect(await screen.findByText("Poniedziałek")).toBeTruthy();
+    expect(await screen.findByText("Ostatnio ugotowane")).toBeTruthy();
     fireEvent.click(screen.getByText("Zakupy"));
     expect(await screen.findByText("Dopisane ręcznie")).toBeTruthy();
     fireEvent.click(screen.getAllByText("Spiżarnia").at(-1)!);

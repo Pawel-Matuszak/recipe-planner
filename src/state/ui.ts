@@ -16,10 +16,6 @@ export const openRecipe = signal<string | null>(null);
 export const randomMode = signal(false);
 export const settingsOpen = signal(false);
 
-export const week = signal(0);
-export const pickFor = signal<string | null>(null); // plan: date whose picker is open
-export const pickMeal = signal("Obiad");
-
 export const pantryQuery = signal("");
 export const onlyHave = signal(false);
 

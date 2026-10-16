@@ -4,7 +4,7 @@ import { randomPick } from "../lib/random";
 import { filters, onlyHave, pantryQuery, setFilter, settingsOpen, tab } from "../state/ui";
 import { Icon } from "./Icon";
 
-const TITLES = { przepisy: "Obiadki", plan: "Plan tygodnia", zakupy: "Lista zakupów", spizarnia: "Spiżarnia" };
+const TITLES = { przepisy: "Obiadki", plan: "Do ugotowania", zakupy: "Lista zakupów", spizarnia: "Spiżarnia" };
 const DOT = { ok: "bg-basil", busy: "bg-saffron", err: "bg-paprika", none: "bg-muted" };
 
 function Status({ s }: { s: SyncStatus }) {

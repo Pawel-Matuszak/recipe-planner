@@ -170,6 +170,19 @@ const ACTIONS = {
     }
   },
 
+  setCooked(p) {
+    const s = sheet_(TABS.plan);
+    const rows = table_(TABS.plan);
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (r[0] === String(p.date) && norm_(r[1]) === norm_(p.meal) && norm_(r[2]) === norm_(p.id) && norm_(r[3]) === norm_(p.text) &&
+          (r[4] === "TRUE") !== (p.cooked === true)) {
+        s.getRange(i + 1, 5).setValue(p.cooked === true);
+        return;
+      }
+    }
+  },
+
   addExtra(p) {
     const s = sheet_(TABS.extra);
     const rows = table_(TABS.extra).slice(1);

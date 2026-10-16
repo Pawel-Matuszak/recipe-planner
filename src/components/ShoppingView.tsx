@@ -1,18 +1,16 @@
 import { useState } from "preact/hooks";
 import { useAct, useModel } from "../data/sheet";
-import { groupBy, iso, shoppingItems, weekDates } from "../model";
+import { groupBy, shoppingItems } from "../model";
 import { toast } from "../state/toast";
-import { week } from "../state/ui";
-import { CheckRow, Empty, WeekNav } from "./common";
+import { CheckRow, Empty } from "./common";
 
 export function ShoppingView() {
   const m = useModel();
   const act = useAct();
   const [extra, setExtra] = useState("");
   if (!m) return <Empty>Wczytuję…</Empty>;
-  const dates = weekDates(week.value).map(iso);
-  const items = shoppingItems(m, dates);
-  const anyPlanned = m.plan.some(p => dates.includes(p.date) && p.id);
+  const items = shoppingItems(m);
+  const anyQueued = m.plan.some(p => p.id && !p.cooked);
 
   const addExtra = (e: Event) => {
     e.preventDefault();
@@ -22,10 +20,9 @@ export function ShoppingView() {
 
   return (
     <>
-      <WeekNav prefix="Plan " />
-      <div class="section">
-        <h3>Brakuje do zaplanowanych dań</h3>
-        {!items.length && <Empty>{anyPlanned ? "Masz wszystko do dań z planu na ten tydzień." : "W planie na ten tydzień nie ma dań z przepisów. Dodaj je w zakładce Plan."}</Empty>}
+      <div class="section mt-0">
+        <h3>Brakuje do dań z listy</h3>
+        {!items.length && <Empty>{anyQueued ? "Masz wszystko do dań z listy do ugotowania." : "Na liście do ugotowania nie ma dań z przepisów. Dodaj je w zakładce Plan."}</Empty>}
         {groupBy(items, i => i.dzial).map(([dzial, group]) => (
           <div key={dzial} class="group">
             <h3>{dzial}</h3>

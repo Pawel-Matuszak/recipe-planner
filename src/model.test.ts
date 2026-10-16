@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildModel, filterRecipes, iso, missingOf, parseDate, plural, randomPool, shoppingItems, weekDates, type Filters, type Tables } from "./model";
+import { buildModel, filterRecipes, missingOf, parseDate, plural, randomPool, shoppingItems, type Filters, type Tables } from "./model";
 
 const MAIN_HEADER = ["Obrazek", "Nazwa", "Typ", "Trudność", "Było robione?", "Link", "Kategoria 1", "Kateogria 2", "Archived", "ID", "Czas (min)", "Składniki", "Składniki sprawdzone", "Ocena", "Notatki"];
 const recipe = (id: string, name: string, ing: string, extra: Partial<Record<string, string>> = {}) => {
@@ -106,10 +106,9 @@ describe("missing ingredients", () => {
 });
 
 describe("shopping list", () => {
-  it("collects missing ingredients for planned, not-cooked recipes in the week", () => {
+  it("collects missing ingredients for queued, not-cooked recipes", () => {
     const m = buildModel(tables());
-    const week = weekDates(0, new Date(2026, 9, 14)).map(iso);
-    const items = shoppingItems(m, week);
+    const items = shoppingItems(m);
     expect(items.map(i => i.name)).toEqual(["boczek", "parmezan", "kiełbasa", "cukinia", "papryka", "cebula"]);
     expect(items.find(i => i.name === "cebula")).toMatchObject({ dzial: "Warzywa i owoce", for: ["Leczo"] });
     expect(items.find(i => i.name === "kiełbasa")!.dzial).toBe("Inne");
@@ -117,12 +116,6 @@ describe("shopping list", () => {
 });
 
 describe("dates and words", () => {
-  it("weekDates starts on Monday", () => {
-    const w = weekDates(0, new Date(2026, 9, 18)); // Sunday
-    expect(w[0].getDay()).toBe(1);
-    expect(w[0].getDate()).toBe(12);
-    expect(weekDates(1, new Date(2026, 9, 18))[0].getDate()).toBe(19);
-  });
   it("parseDate rejects junk", () => expect(parseDate("jutro")).toBe(""));
   it("polish plurals", () => {
     expect([1, 2, 5, 12, 22, 25].map(n => plural(n, "przepis", "przepisy", "przepisów")))

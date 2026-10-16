@@ -1,34 +1,23 @@
-import { useState } from "preact/hooks";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { DAYS, ingState, iso, MEALS, missingOf, weekDates, type IngState, type Recipe } from "../model";
+import { ingState, missingOf, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { openRecipe, randomMode } from "../state/ui";
 import { MissBadge } from "./common";
-import { usePlanAdd } from "./PlanView";
+import { useQueueAdd } from "./PlanView";
 
 const ORDER: Record<IngState, number> = { miss: 0, have: 1, always: 2 };
 const HINT: Record<IngState, string> = { miss: "dotknij: mam", have: "dotknij: brak", always: "zawsze" };
 const MARK: Record<IngState, string> = { miss: "bg-paprika-soft text-paprika", have: "bg-basil-soft text-basil", always: "bg-line text-muted" };
 
-function PlanIt({ r }: { r: Recipe }) {
-  const dates = [...weekDates(0), ...weekDates(1)];
-  const [day, setDay] = useState(iso(dates[0]));
-  const [meal, setMeal] = useState(r.type === "Śniadanie" ? "Śniadanie" : "Obiad");
-  const add = usePlanAdd();
+function QueueIt({ m, r }: { m: Model; r: Recipe }) {
+  const add = useQueueAdd();
+  const queued = m.plan.some(p => p.id === r.id && !p.cooked);
   return (
     <div class="section">
-      <h3>Zaplanuj</h3>
-      <div class="row">
-        <select class="field min-w-40 flex-2" aria-label="Dzień" value={day} onChange={e => setDay(e.currentTarget.value)}>
-          {dates.map((d, k) => <option key={k} value={iso(d)}>{k < 7 ? "" : "nast. "}{DAYS[k % 7].toLowerCase()} {d.getDate()}.{String(d.getMonth() + 1).padStart(2, "0")}</option>)}
-        </select>
-        <select class="field" aria-label="Posiłek" value={meal} onChange={e => setMeal(e.currentTarget.value)}>
-          {MEALS.map(x => <option key={x}>{x}</option>)}
-        </select>
-      </div>
-      <button class="btn primary" onClick={() => add(day, meal, r.id, "")}>Dodaj do planu</button>
+      <h3>Do ugotowania</h3>
+      <button class="btn primary" disabled={queued} onClick={() => add(r.id, "")}>{queued ? "Już na liście do ugotowania" : "Dodaj do ugotowania"}</button>
     </div>
   );
 }
@@ -86,7 +75,7 @@ export function RecipeSheet() {
         )}
       </div>
 
-      <PlanIt key={r.id} r={r} />
+      <QueueIt m={m} r={r} />
 
       <div class="section">
         <h3>Po zrobieniu</h3>

@@ -9,6 +9,7 @@ export type Action =
   | { action: "addPantry"; name: string; dzial: string }
   | { action: "addPlan"; date: string; meal: string; id: string; text: string }
   | { action: "removePlan"; date: string; meal: string; id: string; text: string }
+  | { action: "setCooked"; date: string; meal: string; id: string; text: string; cooked: boolean }
   | { action: "addExtra"; items: string[] }
   | { action: "setExtra"; item: string; bought: boolean }
   | { action: "clearBoughtExtra" };
@@ -17,6 +18,8 @@ const FIELD: Record<RecipeField, RegExp> = { done: /^było robione/, rate: /^oce
 const cell = (v: boolean | number | string) => (typeof v === "boolean" ? (v ? "TRUE" : "FALSE") : String(v));
 const col = (header: Row, re: RegExp) => header.findIndex(h => re.test(norm(h)));
 const findIn = (rows: Row[], c: number, key: string) => rows.findIndex((r, i) => i > 0 && norm(r[c]) === norm(key));
+const samePlan = (r: Row, a: { date: string; meal: string; id: string; text: string }) =>
+  String(r[0]) === a.date && norm(r[1]) === norm(a.meal) && norm(r[2]) === norm(a.id) && norm(r[3]) === norm(a.text);
 const setCell = (row: Row, c: number, v: string) => { while (row.length <= c) row.push(""); row[c] = v; };
 
 /** Applies an action to the tables in place, mirroring what the server does. */
@@ -46,12 +49,13 @@ export function applyAction(t: Tables, a: Action): void {
       return;
     case "removePlan": {
       for (let i = t.plan.length - 1; i > 0; i--) {
-        const r = t.plan[i];
-        if (String(r[0]) === a.date && norm(r[1]) === norm(a.meal) && norm(r[2]) === norm(a.id) && norm(r[3]) === norm(a.text)) {
-          t.plan.splice(i, 1);
-          return;
-        }
+        if (samePlan(t.plan[i], a)) { t.plan.splice(i, 1); return; }
       }
+      return;
+    }
+    case "setCooked": {
+      const i = t.plan.findIndex((r, k) => k > 0 && samePlan(r, a) && (norm(r[4]) === "true") !== a.cooked);
+      if (i > 0) setCell(t.plan[i], 4, cell(a.cooked));
       return;
     }
     case "addExtra": {

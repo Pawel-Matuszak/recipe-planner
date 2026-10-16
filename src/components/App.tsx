@@ -1,7 +1,7 @@
 import { useEffect } from "preact/hooks";
 import { config } from "../data/backend";
 import { toastMsg } from "../state/toast";
-import { openRecipe, pickFor, randomMode, settingsOpen, tab, type Tab } from "../state/ui";
+import { openRecipe, randomMode, settingsOpen, tab, type Tab } from "../state/ui";
 import { Header } from "./Header";
 import { Icon } from "./Icon";
 import { PantryView } from "./PantryView";
@@ -15,7 +15,7 @@ const TABS: [Tab, string][] = [["przepisy", "Przepisy"], ["plan", "Plan"], ["zak
 const VIEWS = { przepisy: RecipesView, plan: PlanView, zakupy: ShoppingView, spizarnia: PantryView };
 
 function TabBar() {
-  const go = (k: Tab) => { tab.value = k; pickFor.value = null; window.scrollTo(0, 0); };
+  const go = (k: Tab) => { tab.value = k; window.scrollTo(0, 0); };
   return (
     <nav class="fixed inset-x-0 bottom-0 z-25 grid grid-cols-[repeat(4,minmax(0,170px))] justify-center border-t border-line bg-surface"
       style={{ padding: "0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)" }} aria-label="Sekcje">
