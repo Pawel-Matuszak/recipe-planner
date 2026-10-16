@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/preact-query";
 import { refresh, useModel, useSyncStatus, type SyncStatus } from "../data/sheet";
 import { randomPick } from "../lib/random";
-import { filters, onlyHave, pantryQuery, setFilter, settingsOpen, tab } from "../state/ui";
+import { filters, filtersOpen, onlyHave, pantryQuery, setFilter, settingsOpen, tab } from "../state/ui";
+import { activeFilters, clearFilter } from "./FiltersSheet";
 import { Icon } from "./Icon";
 
 const TITLES = { przepisy: "Obiadki", plan: "Do ugotowania", zakupy: "Lista zakupów", spizarnia: "Spiżarnia" };
@@ -20,29 +21,26 @@ function RecipeFilters() {
   const m = useModel();
   if (!m) return null;
   const f = filters.value;
-  const types = ["Wszystkie", ...new Set(m.recipes.map(r => r.type))];
-  const cats = [...new Set(m.recipes.flatMap(r => r.cats))].sort((a, b) => a.localeCompare(b, "pl"));
+  const active = activeFilters(f);
+  const n = active.length + (f.can ? 1 : 0);
   return (
     <>
       <div class="flex gap-2">
-        <input class="search-input" type="search" placeholder="Szukaj dania lub składnika…" value={f.q} autocomplete="off" enterkeyhint="search"
+        <input class="search-input" type="search" placeholder="Danie lub składnik…" aria-label="Szukaj dania lub składnika" value={f.q} autocomplete="off" enterkeyhint="search"
           onInput={e => setFilter("q", e.currentTarget.value)} />
+        <button class={`iconbtn gap-1.5 ${n ? "border-ink" : ""}`} onClick={() => (filtersOpen.value = true)} aria-haspopup="dialog"
+          aria-label={n ? `Filtry, aktywne: ${n}` : "Filtry"}>
+          <span class="flex items-center gap-1.5"><Icon name="filters" />{n > 0 && <span class="count-dot">{n}</span>}</span>
+        </button>
         <button class="iconbtn primary" onClick={() => randomPick(m)}>Losuj</button>
       </div>
-      <div class="chips" role="group" aria-label="Filtry">
+      <div class="flex flex-wrap gap-1.5" role="group" aria-label="Aktywne filtry">
         <button class="chip can" aria-pressed={f.can} onClick={() => setFilter("can", !f.can)}>Mogę zrobić teraz</button>
-        {[15, 30, 60].map(t => (
-          <button key={t} class="chip" aria-pressed={f.maxTime === t} onClick={() => setFilter("maxTime", f.maxTime === t ? 0 : t)}>≤ {t} min</button>
+        {active.map(a => (
+          <button key={a.key} class="chip" aria-pressed="true" aria-label={`Usuń filtr: ${a.label}`} onClick={() => clearFilter(a.key)}>
+            {a.label}<span aria-hidden="true" class="ml-1.5 opacity-70">×</span>
+          </button>
         ))}
-        <button class="chip" aria-pressed={f.todo} onClick={() => setFilter("todo", !f.todo)}>Jeszcze nie robione</button>
-        <select class="chip" aria-label="Kategoria" value={f.cat} onChange={e => setFilter("cat", e.currentTarget.value)}>
-          <option value="">Każda kategoria</option>
-          {cats.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <button class="chip" aria-pressed={f.arch} onClick={() => setFilter("arch", !f.arch)}>Archiwum</button>
-      </div>
-      <div class="chips" role="group" aria-label="Typ">
-        {types.map(t => <button key={t} class="chip" aria-pressed={f.type === t} onClick={() => setFilter("type", t)}>{t}</button>)}
       </div>
     </>
   );

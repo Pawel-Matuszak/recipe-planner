@@ -1,7 +1,8 @@
 import { useState } from "preact/hooks";
 import { useAct, useModel } from "../data/sheet";
-import { groupBy, shoppingItems } from "../model";
+import { groupBy, norm, shoppingItems } from "../model";
 import { toast } from "../state/toast";
+import { boughtNeeds } from "../state/ui";
 import { CheckRow, Empty } from "./common";
 
 export function ShoppingView() {
@@ -11,6 +12,16 @@ export function ShoppingView() {
   if (!m) return <Empty>Wczytuję…</Empty>;
   const items = shoppingItems(m);
   const anyQueued = m.plan.some(p => p.id && !p.cooked);
+  const bought = new Set(boughtNeeds.value);
+  const isBought = (name: string) => bought.has(norm(name));
+  const setBought = (name: string, on: boolean) =>
+    (boughtNeeds.value = on ? [...boughtNeeds.value, norm(name)] : boughtNeeds.value.filter(x => x !== norm(name)));
+  const boughtItems = items.filter(i => isBought(i.name));
+  const moveBought = () => {
+    for (const i of boughtItems) act({ action: "setPantry", name: i.name, have: true });
+    boughtNeeds.value = [];
+    toast(`Dodano do spiżarni: ${boughtItems.length}`);
+  };
 
   const addExtra = (e: Event) => {
     e.preventDefault();
@@ -27,15 +38,13 @@ export function ShoppingView() {
           <div key={dzial} class="group">
             <h3>{dzial}</h3>
             {group.sort((a, b) => a.name.localeCompare(b.name, "pl")).map(it => (
-              <CheckRow key={it.name} label={it.name} sub={`do: ${it.for.join(", ")}`}
-                onChange={() => {
-                  toast(`${it.name}: kupione`);
-                  setTimeout(() => act({ action: "setPantry", name: it.name, have: true }), 300); // let the tick show before the row goes
-                }} />
+              <CheckRow key={it.name} label={it.name} sub={`do: ${it.for.join(", ")}`} checked={isBought(it.name)} done={isBought(it.name)}
+                onChange={c => setBought(it.name, c)} />
             ))}
           </div>
         ))}
-        {items.length > 0 && <p class="count">Odhaczenie oznacza składnik jako „mam” w spiżarni.</p>}
+        {boughtItems.length > 0 && <button class="btn ghost" onClick={moveBought}>Usuń kupione z listy</button>}
+        {items.length > 0 && <p class="count">Kupione po usunięciu z listy trafiają do spiżarni jako „mam”.</p>}
       </div>
       <div class="section">
         <h3>Dopisane ręcznie</h3>

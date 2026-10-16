@@ -2,6 +2,7 @@ import { useEffect } from "preact/hooks";
 import { config } from "../data/backend";
 import { toastMsg } from "../state/toast";
 import { openRecipe, randomMode, settingsOpen, tab, type Tab } from "../state/ui";
+import { FiltersSheet } from "./FiltersSheet";
 import { Header } from "./Header";
 import { Icon } from "./Icon";
 import { PantryView } from "./PantryView";
@@ -74,6 +75,7 @@ export function App() {
       </div>
       <TabBar />
       <Overlay />
+      <FiltersSheet />
       <Toast />
     </>
   );

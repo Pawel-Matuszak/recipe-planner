@@ -73,10 +73,24 @@
     &.can[aria-pressed="true"] { @apply border-basil bg-basil text-surface; }
   }
 
+  .opt {
+    @apply cursor-pointer rounded-full border border-line bg-surface px-[13px] py-[7px] text-[.9rem];
+    &:has(:checked) { @apply border-ink bg-ink text-bg; }
+    &:has(:focus-visible) { outline: 2px solid var(--color-basil); outline-offset: 2px; }
+  }
+  .count-dot { @apply grid h-5 min-w-5 place-items-center rounded-full bg-ink px-1 text-[.72rem] text-bg tabular-nums; }
+
+  .sheet {
+    @apply m-0 mx-auto mt-auto w-full max-w-[720px] rounded-t-[18px] border border-b-0 border-line bg-surface p-0 text-ink;
+    max-height: 85dvh;
+    &::backdrop { background: rgb(0 0 0 / .4); }
+  }
+
   .btn {
     @apply inline-flex items-center justify-center gap-1.5 rounded-full border border-line bg-surface px-4 py-2.5 font-bold text-ink no-underline;
     &.primary { @apply border-basil bg-basil text-surface; }
     &.ghost { @apply bg-transparent; }
+    &:disabled { @apply opacity-45; cursor: default; }
   }
 
   .card {

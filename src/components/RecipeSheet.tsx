@@ -8,7 +8,6 @@ import { MissBadge } from "./common";
 import { useQueueAdd } from "./PlanView";
 
 const ORDER: Record<IngState, number> = { miss: 0, have: 1, always: 2 };
-const HINT: Record<IngState, string> = { miss: "dotknij: mam", have: "dotknij: brak", always: "zawsze" };
 const MARK: Record<IngState, string> = { miss: "bg-paprika-soft text-paprika", have: "bg-basil-soft text-basil", always: "bg-line text-muted" };
 
 function QueueIt({ m, r }: { m: Model; r: Recipe }) {
@@ -60,11 +59,11 @@ export function RecipeSheet() {
         <h3>Składniki{r.ing.length ? ` · ${r.ing.length}` : ""}</h3>
         {r.ing.length
           ? ings.map(({ i, st }) => (
-            <button key={i} class="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"}
+            <button key={i} class="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
               onClick={() => act({ action: "setPantry", name: i, have: st === "miss" })}>
               <span class={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
               <span class="min-w-0 flex-1">{i}</span>
-              <span class="text-[.75rem] text-muted">{HINT[st]}</span>
+              {st === "always" && <span class="text-[.75rem] text-muted">zawsze mam</span>}
             </button>
           ))
           : <div class="empty">Brak listy składników. Dopisz je w arkuszu w kolumnie „Składniki”, rozdzielając średnikami.</div>}
