@@ -17,10 +17,12 @@ Działa offline: dane są zapisane w telefonie, a zmiany czekają w kolejce i wy
 iPhone (PWA, GitHub Pages) ──fetch + token──▶ Apps Script web app ──▶ arkusz „Obiadki2”
 ```
 
-- `src/`: frontend (Vite + TypeScript, bez frameworka).
-  - `model.ts`: czyste funkcje (braki, filtry, lista zakupów).
-  - `actions.ts`: zapisy stosowane lokalnie i w trybie demo.
-  - `api.ts`: klient Apps Script i trwała kolejka zapisów.
+- `src/`: frontend (Vite + Preact + TypeScript, TanStack Query, Tailwind CSS).
+  - `model.ts`: czyste funkcje (braki, filtry, lista zakupów). Cały arkusz jest ładowany raz i filtrowany w telefonie.
+  - `actions.ts`: zapisy stosowane lokalnie (optymistycznie) i w trybie demo.
+  - `data/`: klient Apps Script (`backend.ts`) i TanStack Query (`queryClient.ts`, `sheet.ts`). Dane i niewysłane zmiany są zapisywane w `localStorage` przez persister, więc apka działa offline, a zmiany wysyłają się po kolei po powrocie sieci.
+  - `state/`: stan interfejsu (Preact signals): zakładka, filtry, otwarty przepis.
+  - `components/`: widoki w Preact.
 - `apps-script/Code.gs`: backend przypięty do arkusza. `GET ?action=all` zwraca cały arkusz, a `POST` przyjmuje akcje z `src/actions.ts`.
 - Arkusz: zakładki `Main` (przepisy, kolumny rozpoznawane po nagłówkach), `Spiżarnia`, `Plan2` i `Zakupy_extra`.
 
@@ -53,7 +55,7 @@ Otwórz https://pawel-matuszak.github.io/recipe-planner/ w Safari → Udostępni
 npm install
 npm run dev:mock   # apka na przykładowych danych, bez arkusza
 npm run dev        # apka z prawdziwym arkuszem (adres i token w Ustawieniach)
-npm test           # testy modelu i akcji (vitest)
+npm test           # testy modelu, akcji, synchronizacji i widoków (vitest)
 npm run build      # build produkcyjny do dist/
 npm run icons      # wygeneruj ikony PWA do public/icons
 ```

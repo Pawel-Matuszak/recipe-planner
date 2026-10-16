@@ -1,9 +1,13 @@
 import { defineConfig } from "vitest/config";
+import preact from "@preact/preset-vite";
+import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   base: "/recipe-planner/",
   plugins: [
+    preact(),
+    tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icons/apple-touch-icon.png", "icons/favicon.png"],
@@ -24,14 +28,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,png,svg}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
-            handler: "CacheFirst",
-            options: { cacheName: "fonts", expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
-          },
-        ],
+        // fonts are self-hosted, so the whole app (fonts included) works offline after the first visit
+        globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
+        globIgnores: ["**/*vietnamese*"],
       },
     }),
   ],

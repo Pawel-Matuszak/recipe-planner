@@ -13,9 +13,23 @@
     "icons": "node scripts/make-icons.mjs"
   },
   "devDependencies": {
+    "@preact/preset-vite": "2.10.6",
+    "@tailwindcss/vite": "4.3.3",
+    "@testing-library/preact": "3.2.4",
+    "happy-dom": "20.14.5",
+    "tailwindcss": "4.3.3",
     "typescript": "5.6.3",
     "vite": "6.3.5",
     "vite-plugin-pwa": "0.21.1",
     "vitest": "3.0.5"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "5.3.0",
+    "@fontsource/atkinson-hyperlegible": "5.3.0",
+    "@preact/signals": "2.11.2",
+    "@tanstack/preact-query": "5.104.0",
+    "@tanstack/preact-query-persist-client": "5.104.0",
+    "@tanstack/query-sync-storage-persister": "5.104.0",
+    "preact": "10.29.8"
   }
 }
