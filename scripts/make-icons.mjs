@@ -1,9 +1,9 @@
-// Draws the app icon (a plate with a basil leaf on a basil-green tile) into PNGs, no dependencies.
+// Draws the app icon (a chef's hat on a basil-green tile) into PNGs, no dependencies.
 // Usage: npm run icons
 import { mkdirSync, writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 
-const BASIL = [46, 112, 72], PLATE = [242, 244, 239], RIM = [214, 222, 210], LEAF = [46, 112, 72], PAPRIKA = [184, 67, 42];
+const BASIL = [46, 112, 72], PLATE = [242, 244, 239], RIM = [190, 204, 186];
 
 function crc32(buf) {
   let c, crc = 0xffffffff;
@@ -42,17 +42,20 @@ function png(size, pixel) {
 }
 
 // full-bleed square (iOS/Android apply their own mask); content kept inside the maskable safe zone
-function icon(u, v) {
-  const dx = u - 0.5, dy = v - 0.5, d = Math.hypot(dx, dy);
-  if (d < 0.27) {
-    // leaf: lens shape rotated 45°, plus a paprika dot
-    const lx = (dx + dy) / Math.SQRT2, ly = (dy - dx) / Math.SQRT2;
-    const inLeaf = Math.abs(ly) < 0.075 * Math.cos((lx / 0.17) * (Math.PI / 2)) && Math.abs(lx) < 0.17;
-    if (inLeaf && Math.abs(ly) > 0.006) return [...LEAF, 1];
-    if (Math.hypot(dx + 0.1, dy - 0.11) < 0.045) return [...PAPRIKA, 1];
+function icon(u0, v) {
+  const k = 1.15, u = 0.5 + (u0 - 0.5) / k; // scale the drawing up around the centre
+  const y = 0.5 + (v - 0.5) / k - 0.02; // nudge down so the hat looks optically centred
+  const inCircle = (cx, cy, r) => Math.hypot(u - cx, y - cy) < r;
+  // band: rounded rectangle with two pleats
+  const bx = Math.max(Math.abs(u - 0.5) - 0.15, 0), by = Math.max(Math.abs(y - 0.64) - 0.05, 0);
+  if (Math.hypot(bx, by) < 0.025) {
+    if (y < 0.605) return [...RIM, 1]; // seam between puff and band
+    if (Math.abs(u - 0.43) < 0.008 || Math.abs(u - 0.57) < 0.008) return [...RIM, 1];
     return [...PLATE, 1];
   }
-  if (d < 0.31) return [...RIM, 1];
+  // puffy top: three overlapping circles joined by a body
+  if (inCircle(0.5, 0.36, 0.14) || inCircle(0.35, 0.44, 0.11) || inCircle(0.65, 0.44, 0.11) ||
+      (Math.abs(u - 0.5) < 0.15 && y > 0.42 && y < 0.6)) return [...PLATE, 1];
   return [...BASIL, 1];
 }
 

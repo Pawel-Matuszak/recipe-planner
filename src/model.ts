@@ -16,8 +16,6 @@ export interface PlanEntry { date: string; meal: string; id: string; text: strin
 export interface ExtraItem { item: string; bought: boolean }
 export interface Model { recipes: Recipe[]; pantry: Map<string, PantryItem>; plan: PlanEntry[]; extra: ExtraItem[] }
 
-export const MEALS = ["Śniadanie", "Obiad", "Kolacja", "Przekąska"];
-export const DAYS = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"];
 export const DZIALY = ["Warzywa i owoce", "Mięso i ryby", "Nabiał i jajka", "Pieczywo", "Makaron, ryż, kasze", "Puszki i słoiki", "Sosy i przyprawy", "Pieczenie", "Inne"];
 
 export const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
@@ -35,13 +33,6 @@ export function parseDate(v: unknown): string {
   if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/))) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
   return "";
-}
-
-/** Monday-to-Sunday dates of the week `offset` weeks from the one containing `today`. */
-export function weekDates(offset: number, today = new Date()): Date[] {
-  const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + offset * 7);
-  return Array.from({ length: 7 }, (_, i) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + i));
 }
 
 const findCol = (headers: Row, test: (h: string) => boolean) => headers.findIndex(h => test(norm(h)));
@@ -127,12 +118,11 @@ export function randomPool(m: Model, list: Recipe[], preferMain: boolean): Recip
 
 export interface ShoppingNeed { name: string; dzial: string; for: string[] }
 
-/** Missing ingredients of recipes planned (and not cooked) in the given dates. */
-export function shoppingItems(m: Model, dates: string[]): ShoppingNeed[] {
-  const days = new Set(dates);
+/** Missing ingredients of recipes in the "do ugotowania" queue (not cooked yet). */
+export function shoppingItems(m: Model): ShoppingNeed[] {
   const need = new Map<string, ShoppingNeed>();
   for (const p of m.plan) {
-    if (!days.has(p.date) || !p.id || p.cooked) continue;
+    if (!p.id || p.cooked) continue;
     const r = m.recipes.find(x => x.id === p.id);
     if (!r) continue;
     for (const i of missingOf(m, r)) {

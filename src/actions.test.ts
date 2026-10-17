@@ -40,6 +40,17 @@ describe("applyAction", () => {
     expect(t.plan.length).toBe(n);
   });
 
+  it("marks one matching queue entry as cooked and back", () => {
+    const t = cloneTables(demoTables());
+    const e = { date: "2030-01-01", meal: "", id: "r003", text: "" };
+    applyAction(t, { action: "addPlan", ...e });
+    applyAction(t, { action: "addPlan", ...e });
+    applyAction(t, { action: "setCooked", ...e, cooked: true });
+    expect(t.plan.slice(-2).map(r => r[4])).toEqual(["TRUE", "FALSE"]);
+    applyAction(t, { action: "setCooked", ...e, cooked: false });
+    expect(t.plan.slice(-2).map(r => r[4])).toEqual(["FALSE", "FALSE"]);
+  });
+
   it("does not duplicate open shopping items and clears bought ones", () => {
     const t = cloneTables(demoTables());
     applyAction(t, { action: "addExtra", items: ["Papier do pieczenia", "boczek", "boczek"] });

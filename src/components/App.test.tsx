@@ -1,0 +1,49 @@
+// @vitest-environment happy-dom
+import { QueryClientProvider } from "@tanstack/preact-query";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { afterEach, describe, expect, it } from "vitest";
+import { DEMO_URL, setConfig } from "../data/backend";
+import { createQueryClient } from "../data/queryClient";
+import { filtersOpen, resetFilters, tab } from "../state/ui";
+import { App } from "./App";
+
+function renderApp() {
+  setConfig({ url: DEMO_URL, token: "" });
+  return render(<QueryClientProvider client={createQueryClient()}><App /></QueryClientProvider>);
+}
+
+afterEach(() => { cleanup(); tab.value = "przepisy"; filtersOpen.value = false; resetFilters(); });
+
+describe("App with demo data", () => {
+  it("narrows recipes from the filter sheet and clears a filter from its chip", async () => {
+    renderApp();
+    await screen.findByText("Carbonara");
+    expect(screen.getByText("Placki ziemniaczane")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Filtry"));
+    fireEvent.click(await screen.findByLabelText("do 15 min"));
+    await waitFor(() => expect(screen.queryByText("Placki ziemniaczane")).toBeNull());
+    expect(screen.getByText("Egg fried rice")).toBeTruthy();
+    expect(screen.getByLabelText("Filtry, aktywne: 1")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Usuń filtr: do 15 min"));
+    expect(await screen.findByText("Placki ziemniaczane")).toBeTruthy();
+  });
+
+  it("opens a recipe and toggles an ingredient", async () => {
+    renderApp();
+    fireEvent.click(await screen.findByText("Leczo"));
+    const ing = await screen.findByText("cukinia");
+    fireEvent.click(ing.closest("button")!);
+    await waitFor(() => expect(ing.closest("button")!.getAttribute("aria-pressed")).toBe("true"));
+  });
+
+  it("renders every tab", async () => {
+    renderApp();
+    await screen.findByText("Carbonara");
+    fireEvent.click(screen.getByText("Plan"));
+    expect(await screen.findByText("Ostatnio ugotowane")).toBeTruthy();
+    fireEvent.click(screen.getByText("Zakupy"));
+    expect(await screen.findByText("Dopisane ręcznie")).toBeTruthy();
+    fireEvent.click(screen.getAllByText("Spiżarnia").at(-1)!);
+    expect(await screen.findByText("Dodaj składnik")).toBeTruthy();
+  });
+});

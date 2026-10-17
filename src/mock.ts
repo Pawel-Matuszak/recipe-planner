@@ -1,12 +1,12 @@
 // Example data for demo mode (`npm run dev:mock`, or "Wypróbuj na przykładowych danych" in Settings).
-import { iso, weekDates, type Tables } from "./model";
+import { iso, type Tables } from "./model";
 
 const H = ["Obrazek", "Nazwa", "Typ", "Trudność", "Było robione?", "Link", "Kategoria 1", "Kateogria 2", "Archived", "ID", "Czas (min)", "Składniki", "Składniki sprawdzone", "Ocena", "Notatki"];
 const r = (id: string, name: string, typ: string, diff: string, done: boolean, link: string, k1: string, k2: string, czas: number, ing: string, rate = "") =>
   ["", name, typ, diff, done ? "TRUE" : "FALSE", link, k1, k2, "FALSE", id, String(czas), ing, "FALSE", rate, ""];
 
 export function demoTables(): Tables {
-  const w = weekDates(0).map(iso);
+  const today = iso(new Date());
   return {
     main: [
       H,
@@ -38,11 +38,11 @@ export function demoTables(): Tables {
     ],
     plan: [
       ["Data", "Posiłek", "ID przepisu", "Tekst", "Ugotowane"],
-      [w[0], "Obiad", "r001", "", "TRUE"],
-      [w[1], "Śniadanie", "r008", "", "FALSE"],
-      [w[2], "Obiad", "r005", "", "FALSE"],
-      [w[2], "Kolacja", "", "kanapki z szynką", "FALSE"],
-      [w[4], "Obiad", "r002", "", "FALSE"],
+      [today, "", "r001", "", "TRUE"],
+      [today, "", "r008", "", "FALSE"],
+      [today, "", "r005", "", "FALSE"],
+      [today, "", "", "kanapki z szynką", "FALSE"],
+      [today, "", "r002", "", "FALSE"],
     ],
     extra: [["Pozycja", "Kupione"], ["papier do pieczenia", "FALSE"]],
   };
