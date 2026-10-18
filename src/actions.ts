@@ -7,11 +7,13 @@ export type Action =
   | { action: "setRecipeField"; by: "id" | "name"; key: string; field: RecipeField; value: boolean | number | string }
   | { action: "setPantry"; name: string; have: boolean }
   | { action: "addPantry"; name: string; dzial: string }
+  | { action: "removePantry"; name: string }
   | { action: "addPlan"; date: string; meal: string; id: string; text: string }
   | { action: "removePlan"; date: string; meal: string; id: string; text: string }
   | { action: "setCooked"; date: string; meal: string; id: string; text: string; cooked: boolean }
   | { action: "addExtra"; items: string[] }
   | { action: "setExtra"; item: string; bought: boolean }
+  | { action: "removeExtra"; item: string }
   | { action: "clearBoughtExtra" };
 
 const FIELD: Record<RecipeField, RegExp> = { done: /^było robione/, rate: /^ocena$/, notes: /^notatki$/ };
@@ -44,6 +46,11 @@ export function applyAction(t: Tables, a: Action): void {
       else t.pantry.push([a.name.trim(), a.dzial || "Inne", "TRUE", "FALSE"]);
       return;
     }
+    case "removePantry": {
+      const i = findIn(t.pantry, 0, a.name);
+      if (i > 0) t.pantry.splice(i, 1);
+      return;
+    }
     case "addPlan":
       t.plan.push([a.date, a.meal, a.id, a.text, "FALSE"]);
       return;
@@ -72,6 +79,9 @@ export function applyAction(t: Tables, a: Action): void {
       if (i > 0) setCell(t.extra[i], 1, cell(a.bought));
       return;
     }
+    case "removeExtra":
+      t.extra = [t.extra[0] ?? ["Pozycja", "Kupione"], ...t.extra.slice(1).filter(r => norm(r[1]) === "true" || norm(r[0]) !== norm(a.item))];
+      return;
     case "clearBoughtExtra":
       t.extra = [t.extra[0] ?? ["Pozycja", "Kupione"], ...t.extra.slice(1).filter(r => norm(r[1]) !== "true")];
       return;

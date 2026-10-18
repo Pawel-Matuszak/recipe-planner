@@ -1,7 +1,7 @@
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { ingState, missingOf, type IngState, type Model, type Recipe } from "../model";
+import { ingState, sumQty, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { openRecipe, randomMode } from "../state/ui";
 import { MissBadge } from "./common";
@@ -26,8 +26,7 @@ export function RecipeSheet() {
   const r = useRecipe(openRecipe.value);
   const act = useAct();
   if (!r || !m) return null;
-  const miss = missingOf(m, r);
-  const ings = r.ing.map(i => ({ i, st: ingState(m, i) })).sort((a, b) => ORDER[a.st] - ORDER[b.st]);
+  const ings = r.ing.map(i => ({ i, st: ingState(m, i.name) })).sort((a, b) => ORDER[a.st] - ORDER[b.st]);
   const setField = (field: "done" | "rate" | "notes", value: boolean | number | string) =>
     act({ action: "setRecipeField", by: r.by, key: r.key, field, value });
   const close = () => { openRecipe.value = null; randomMode.value = false; };
@@ -39,6 +38,7 @@ export function RecipeSheet() {
         {randomMode.value && <button class="btn primary" onClick={() => randomPick(m)}>Losuj jeszcze raz</button>}
       </div>
       <h2>{r.name}</h2>
+      {r.desc && <p class="mt-1.5 whitespace-pre-line text-muted">{r.desc}</p>}
       <div class="row mt-2.5">
         <MissBadge m={m} r={r} />
         {r.time > 0 && <span class="badge b-unk">{r.time} min</span>}
@@ -59,20 +59,29 @@ export function RecipeSheet() {
         <h3>Składniki{r.ing.length ? ` · ${r.ing.length}` : ""}</h3>
         {r.ing.length
           ? ings.map(({ i, st }) => (
-            <button key={i} class="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
-              onClick={() => act({ action: "setPantry", name: i, have: st === "miss" })}>
+            <button key={i.name} class="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
+              onClick={() => act({ action: "setPantry", name: i.name, have: st === "miss" })}>
               <span class={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
-              <span class="min-w-0 flex-1">{i}</span>
-              {st === "always" && <span class="text-[.75rem] text-muted">zawsze mam</span>}
+              <span class="min-w-0 flex-1">{i.name}{st === "always" && <span class="block text-[.75rem] text-muted">zawsze mam</span>}</span>
+              {i.qty && <span class="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
             </button>
           ))
-          : <div class="empty">Brak listy składników. Dopisz je w arkuszu w kolumnie „Składniki”, rozdzielając średnikami.</div>}
-        {miss.length > 0 && (
-          <button class="btn" onClick={() => { act({ action: "addExtra", items: miss }); toast(`Na liście zakupów: +${miss.length}`); }}>
-            Brakujące na listę zakupów ({miss.length})
-          </button>
-        )}
+          : <div class="empty">Brak listy składników. Dopisz je w arkuszu w kolumnie „Składniki”, rozdzielając średnikami, ilość po dwukropku, np. „makaron: 200 g; jajka: 3; pieprz”.</div>}
       </div>
+
+      {r.steps.length > 0 && (
+        <div class="section">
+          <h3>Przepis</h3>
+          <ol class="grid gap-2.5">
+            {r.steps.map((s, k) => (
+              <li key={k} class="flex gap-2.5">
+                <span class="grid size-6 flex-none place-items-center rounded-full bg-line text-[.85rem] font-extrabold">{k + 1}</span>
+                <span class="min-w-0 flex-1 pt-0.5">{s}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       <QueueIt m={m} r={r} />
 

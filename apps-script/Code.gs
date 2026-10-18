@@ -151,6 +151,12 @@ const ACTIONS = {
     else s.getRange(nextRow_(s, 1), 1, 1, 4).setValues([[String(p.name).trim(), String(p.dzial || "Inne"), true, false]]);
   },
 
+  removePantry(p) {
+    const s = sheet_(TABS.pantry);
+    const row = findRow_(s, 1, p.name);
+    if (row) s.deleteRow(row);
+  },
+
   addPlan(p) {
     const s = sheet_(TABS.plan);
     const row = nextRow_(s, 1);
@@ -198,6 +204,12 @@ const ACTIONS = {
     const s = sheet_(TABS.extra);
     const row = findRow_(s, 1, p.item);
     if (row) s.getRange(row, 2).setValue(p.bought === true);
+  },
+
+  removeExtra(p) {
+    const s = sheet_(TABS.extra);
+    const rows = table_(TABS.extra);
+    for (let i = rows.length - 1; i >= 1; i--) if (rows[i][1] !== "TRUE" && norm_(rows[i][0]) === norm_(p.item)) s.deleteRow(i + 1);
   },
 
   clearBoughtExtra() {

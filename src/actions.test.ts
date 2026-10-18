@@ -31,6 +31,20 @@ describe("applyAction", () => {
     expect(m.pantry.get("szafran")).toMatchObject({ dzial: "Inne", have: true });
   });
 
+  it("removes pantry items", () => {
+    const t = cloneTables(demoTables());
+    applyAction(t, { action: "removePantry", name: "Boczek" });
+    expect(buildModel(t).pantry.has("boczek")).toBe(false);
+  });
+
+  it("removes open extra items but keeps bought ones", () => {
+    const t = cloneTables(demoTables());
+    applyAction(t, { action: "addExtra", items: ["folia"] });
+    t.extra.push(["folia", "TRUE"]);
+    applyAction(t, { action: "removeExtra", item: "Folia" });
+    expect(buildModel(t).extra.filter(x => x.item === "folia")).toEqual([{ item: "folia", bought: true }]);
+  });
+
   it("adds and removes plan entries", () => {
     const t = cloneTables(demoTables());
     const n = t.plan.length;
