@@ -9,7 +9,8 @@ export interface Recipe {
   key: string;         // value the API looks up
   by: "id" | "name";   // which column `key` lives in
   name: string; type: string; diff: string; done: boolean; arch: boolean;
-  links: string[]; cats: string[]; time: number; ing: string[]; ver: boolean; rate: number; notes: string;
+  links: string[]; cats: string[]; time: number; ing: Ing[]; ver: boolean; rate: number; notes: string;
+  desc: string; steps: string[];
 }
 export interface PantryItem { name: string; dzial: string; have: boolean; always: boolean }
 export interface PlanEntry { date: string; meal: string; id: string; text: string; cooked: boolean }
@@ -21,6 +22,83 @@ export const DZIALY = ["Warzywa i owoce", "Mięso i ryby", "Nabiał i jajka", "P
 export const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
 export const bool = (v: unknown) => v === true || String(v).toUpperCase() === "TRUE";
 export const splitIng = (s: string) => String(s || "").split(";").map(x => x.trim()).filter(Boolean);
+
+/* ---------- ingredient amounts: "makaron: 200 g; jajka: 3; pieprz" ---------- */
+
+/** `value` is in the canonical unit (g, ml, …); null when the amount is free text like "do smaku". */
+export interface Qty { value: number | null; unit: string; raw: string }
+export interface Ing { name: string; qty: Qty | null }
+
+// canonical unit, factor to it, accepted spellings, display forms [1, 2-4, 5+]
+const UNITS: [string, number, string[], [string, string, string]][] = [
+  ["g", 1, ["g", "gr", "gram", "gramy", "gramów"], ["g", "g", "g"]],
+  ["g", 10, ["dag", "dkg"], ["g", "g", "g"]],
+  ["g", 1000, ["kg", "kilogram", "kilogramy", "kilogramów"], ["g", "g", "g"]],
+  ["ml", 1, ["ml", "mililitr", "mililitry", "mililitrów"], ["ml", "ml", "ml"]],
+  ["ml", 1000, ["l", "litr", "litry", "litrów"], ["ml", "ml", "ml"]],
+  ["szt", 1, ["", "szt", "sztuka", "sztuki", "sztuk"], ["szt.", "szt.", "szt."]],
+  ["łyżka", 1, ["łyżka", "łyżki", "łyżek", "łyżkę", "łyż"], ["łyżka", "łyżki", "łyżek"]],
+  ["łyżeczka", 1, ["łyżeczka", "łyżeczki", "łyżeczek", "łyżeczkę", "łyżecz"], ["łyżeczka", "łyżeczki", "łyżeczek"]],
+  ["szklanka", 1, ["szklanka", "szklanki", "szklanek", "szklankę"], ["szklanka", "szklanki", "szklanek"]],
+  ["ząbek", 1, ["ząbek", "ząbki", "ząbków", "ząbka"], ["ząbek", "ząbki", "ząbków"]],
+  ["puszka", 1, ["puszka", "puszki", "puszek", "puszkę"], ["puszka", "puszki", "puszek"]],
+  ["opak", 1, ["opak", "opakowanie", "opakowania", "opakowań"], ["opak.", "opak.", "opak."]],
+  ["pęczek", 1, ["pęczek", "pęczki", "pęczków", "pęczka"], ["pęczek", "pęczki", "pęczków"]],
+  ["garść", 1, ["garść", "garście", "garści"], ["garść", "garście", "garści"]],
+  ["szczypta", 1, ["szczypta", "szczypty", "szczypt", "szczyptę"], ["szczypta", "szczypty", "szczypt"]],
+  ["plaster", 1, ["plaster", "plastry", "plastrów", "plasterek", "plasterki", "plasterków"], ["plaster", "plastry", "plastrów"]],
+];
+const UNIT_OF = new Map(UNITS.flatMap(([unit, factor, names]) => names.map(n => [n, { unit, factor }] as const)));
+const FORMS = new Map(UNITS.map(([unit, , , forms]) => [unit, forms]));
+const FRACTIONS: Record<string, number> = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3 };
+const NUM = String.raw`\d*\s*[½¼¾⅓⅔]|\d+(?:[.,]\d+)?(?:\s*\/\s*\d+)?`;
+const QTY_RE = new RegExp(String.raw`^(${NUM})(?:\s*[-–]\s*(${NUM}))?\s*(.*)$`);
+
+function num(s: string): number {
+  const t = s.replace(/\s+/g, "").replace(",", ".");
+  const frac = t.match(/[½¼¾⅓⅔]$/);
+  if (frac) return (parseFloat(t) || 0) + FRACTIONS[frac[0]];
+  const [a, b] = t.split("/");
+  return b ? parseFloat(a) / parseFloat(b) : parseFloat(a);
+}
+
+export function parseQty(s: string): Qty | null {
+  const raw = s.trim();
+  if (!raw) return null;
+  const m = raw.match(QTY_RE);
+  if (!m) return { value: null, unit: "", raw };
+  const n = num(m[2] ?? m[1]); // range "2-3" → buy for the upper bound
+  const word = norm(m[3]).replace(/\.$/, "");
+  const u = UNIT_OF.get(word);
+  return u ? { value: n * u.factor, unit: u.unit, raw } : { value: n, unit: word, raw };
+}
+
+/** "śmietanka 30%: 200 ml" → name + amount; text without a colon is just a name. */
+export function parseIng(s: string): Ing {
+  const i = s.lastIndexOf(":");
+  if (i < 0) return { name: s.trim(), qty: null };
+  return { name: s.slice(0, i).trim(), qty: parseQty(s.slice(i + 1)) };
+}
+
+const fmtNum = (n: number) => n.toLocaleString("pl-PL", { maximumFractionDigits: 2 });
+function fmtUnit(value: number, unit: string): string {
+  if (unit === "g" && value >= 1000) return `${fmtNum(value / 1000)} kg`;
+  if (unit === "ml" && value >= 1000) return `${fmtNum(value / 1000)} l`;
+  const f = FORMS.get(unit);
+  const word = !f ? unit : Number.isInteger(value) ? plural(value, ...f) : f[1];
+  return word ? `${fmtNum(value)} ${word}` : fmtNum(value);
+}
+
+/** Adds amounts of the same ingredient; units of different kinds are listed side by side ("200 ml + 2 łyżki"). */
+export function sumQty(qs: (Qty | null)[]): string {
+  const sums = new Map<string, number>(), texts = new Set<string>();
+  for (const q of qs) {
+    if (!q) continue;
+    if (q.value === null) texts.add(q.raw);
+    else sums.set(q.unit, (sums.get(q.unit) ?? 0) + q.value);
+  }
+  return [...[...sums].map(([u, v]) => fmtUnit(v, u)), ...texts].join(" + ");
+}
 
 export function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -45,6 +123,7 @@ export function buildModel(t: Tables): Model {
     k1: findCol(mh, h => /^kat\w*\s*1$/.test(h)), k2: findCol(mh, h => /^kat\w*\s*2$/.test(h)), arch: findCol(mh, h => h === "archived"),
     id: findCol(mh, h => h === "id"), time: findCol(mh, h => h.startsWith("czas")), ing: findCol(mh, h => h === "składniki"),
     ver: findCol(mh, h => h.startsWith("składniki sprawdz")), rate: findCol(mh, h => h === "ocena"), notes: findCol(mh, h => h === "notatki"),
+    desc: findCol(mh, h => h === "opis"), steps: findCol(mh, h => h === "przepis"),
   };
   const g = (r: Row, k: keyof typeof ix) => (ix[k] >= 0 ? String(r[ix[k]] ?? "") : "");
 
@@ -58,8 +137,11 @@ export function buildModel(t: Tables): Model {
       name, type: g(r, "type").trim() || "Inne", diff: g(r, "diff").trim(), done: bool(g(r, "done")), arch: bool(g(r, "arch")),
       links: g(r, "link").split(/,(?=\s*(?:https?:|www\.))/).map(s => s.trim()).filter(s => /^(https?:\/\/|www\.)/i.test(s)),
       cats: [g(r, "k1"), g(r, "k2")].map(s => s.trim()).filter(Boolean),
-      time: parseInt(g(r, "time"), 10) || 0, ing: splitIng(g(r, "ing")), ver: bool(g(r, "ver")),
+      time: parseInt(g(r, "time"), 10) || 0, ing: splitIng(g(r, "ing")).map(parseIng), ver: bool(g(r, "ver")),
       rate: parseInt(g(r, "rate"), 10) || 0, notes: g(r, "notes"),
+      desc: g(r, "desc").trim(),
+      // one step per line; a leading "1." / "2)" is dropped since the UI numbers steps itself
+      steps: g(r, "steps").split(/\r?\n/).map(s => s.trim().replace(/^\d+[.)]\s*/, "")).filter(Boolean),
     });
   }
 
@@ -85,7 +167,7 @@ export function ingState(m: Model, name: string): IngState {
   if (p.always) return "always";
   return p.have ? "have" : "miss";
 }
-export const missingOf = (m: Model, r: Recipe) => r.ing.filter(i => ingState(m, i) === "miss");
+export const missingOf = (m: Model, r: Recipe) => r.ing.filter(i => ingState(m, i.name) === "miss");
 
 export interface Filters { q: string; type: string; cat: string; maxTime: number; can: boolean; todo: boolean; arch: boolean }
 
@@ -97,7 +179,7 @@ export function filterRecipes(m: Model, f: Filters): Recipe[] {
     if (f.cat && !r.cats.includes(f.cat)) return false;
     if (f.maxTime && !(r.time && r.time <= f.maxTime)) return false;
     if (f.todo && r.done) return false;
-    if (q && !(norm(r.name).includes(q) || r.ing.some(i => norm(i).includes(q)) || r.cats.some(c => norm(c).includes(q)))) return false;
+    if (q && !(norm(r.name).includes(q) || r.ing.some(i => norm(i.name).includes(q)) || r.cats.some(c => norm(c).includes(q)))) return false;
     return true;
   });
   if (!f.can) return list;
@@ -116,23 +198,26 @@ export function randomPool(m: Model, list: Recipe[], preferMain: boolean): Recip
   return near.length ? near : pool;
 }
 
-export interface ShoppingNeed { name: string; dzial: string; for: string[] }
+export interface ShoppingNeed { name: string; dzial: string; total: string; for: { recipe: string; qty: string }[] }
 
-/** Missing ingredients of recipes in the "do ugotowania" queue (not cooked yet). */
+/** Missing ingredients of recipes in the "do ugotowania" queue (not cooked yet), amounts summed across recipes. */
 export function shoppingItems(m: Model): ShoppingNeed[] {
-  const need = new Map<string, ShoppingNeed>();
+  const need = new Map<string, { name: string; dzial: string; by: Map<string, (Qty | null)[]> }>();
   for (const p of m.plan) {
     if (!p.id || p.cooked) continue;
     const r = m.recipes.find(x => x.id === p.id);
     if (!r) continue;
     for (const i of missingOf(m, r)) {
-      const k = norm(i);
-      const e = need.get(k) ?? { name: i, dzial: m.pantry.get(k)?.dzial ?? "Inne", for: [] };
-      if (!e.for.includes(r.name)) e.for.push(r.name);
+      const k = norm(i.name);
+      const e = need.get(k) ?? { name: i.name, dzial: m.pantry.get(k)?.dzial ?? "Inne", by: new Map() };
+      (e.by.get(r.name) ?? e.by.set(r.name, []).get(r.name)!).push(i.qty);
       need.set(k, e);
     }
   }
-  return [...need.values()];
+  return [...need.values()].map(({ name, dzial, by }) => ({
+    name, dzial, total: sumQty([...by.values()].flat()),
+    for: [...by].map(([recipe, qs]) => ({ recipe, qty: sumQty(qs) })),
+  }));
 }
 
 export function groupBy<T>(items: T[], key: (t: T) => string): [string, T[]][] {

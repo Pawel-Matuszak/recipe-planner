@@ -38,7 +38,7 @@ export function ShoppingView() {
           <div key={dzial} class="group">
             <h3>{dzial}</h3>
             {group.sort((a, b) => a.name.localeCompare(b.name, "pl")).map(it => (
-              <CheckRow key={it.name} label={it.name} sub={`do: ${it.for.join(", ")}`} checked={isBought(it.name)} done={isBought(it.name)}
+              <CheckRow key={it.name} label={it.name} qty={it.total} sub={it.for.map(f => f.qty ? `${f.recipe} ${f.qty}` : f.recipe).join(" · ")} checked={isBought(it.name)} done={isBought(it.name)}
                 onChange={c => setBought(it.name, c)} />
             ))}
           </div>
@@ -54,7 +54,7 @@ export function ShoppingView() {
         </form>
         {m.extra.length
           ? m.extra.map((x, k) => <CheckRow key={k} label={x.item} checked={x.bought} done={x.bought} onChange={c => act({ action: "setExtra", item: x.item, bought: c })} />)
-          : <Empty>Pusto. Dopisz coś powyżej albo w przepisie użyj „Brakujące na listę zakupów”.</Empty>}
+          : <Empty>Pusto. Dopisz coś powyżej albo dodaj składnik z zakładki Spiżarnia.</Empty>}
         {m.extra.some(x => x.bought) && <button class="btn ghost" onClick={() => act({ action: "clearBoughtExtra" })}>Usuń kupione z listy</button>}
       </div>
     </>

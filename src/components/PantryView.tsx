@@ -1,9 +1,10 @@
 import { useState } from "preact/hooks";
 import { useAct, useModel } from "../data/sheet";
-import { DZIALY, groupBy, norm } from "../model";
+import { DZIALY, groupBy, norm, shoppingItems, type PantryItem } from "../model";
 import { toast } from "../state/toast";
 import { onlyHave, pantryQuery } from "../state/ui";
 import { CheckRow, Empty } from "./common";
+import { Icon } from "./Icon";
 
 export function PantryView() {
   const m = useModel();
@@ -16,6 +17,29 @@ export function PantryView() {
   const shown = all.filter(p => (!q || norm(p.name).includes(q)) && (!onlyHave.value || p.have || p.always));
   const haveN = all.filter(p => p.have).length;
   const value = name ?? pantryQuery.value;
+  const onExtra = new Set(m.extra.filter(x => !x.bought).map(x => norm(x.item)));
+  const forRecipes = new Set(shoppingItems(m).map(i => norm(i.name)));
+
+  const toggleShopping = (p: PantryItem) => {
+    if (onExtra.has(norm(p.name))) { act({ action: "removeExtra", item: p.name }); toast(`Usunięto z listy zakupów: ${p.name}`); }
+    else { act({ action: "addExtra", items: [p.name] }); toast(`Na liście zakupów: ${p.name}`); }
+  };
+  const remove = (p: PantryItem) => {
+    if (!confirm(`Usunąć „${p.name}” ze spiżarni?`)) return;
+    act({ action: "removePantry", name: p.name });
+    toast(`Usunięto: ${p.name}`);
+  };
+  const actions = (p: PantryItem) => {
+    const extra = onExtra.has(norm(p.name)), auto = !extra && forRecipes.has(norm(p.name));
+    const label = extra ? "Usuń z listy zakupów" : auto ? "Na liście zakupów, bo brakuje do dania z listy do ugotowania" : "Dodaj do listy zakupów";
+    return (
+      <>
+        <button type="button" class="rowbtn" disabled={auto} aria-pressed={extra || auto} aria-label={`${p.name}: ${label}`} title={label}
+          onClick={() => toggleShopping(p)}><Icon name={extra || auto ? "cartDone" : "cartAdd"} /></button>
+        <button type="button" class="rowbtn" aria-label={`Usuń ${p.name} ze spiżarni`} title="Usuń ze spiżarni" onClick={() => remove(p)}><Icon name="trash" /></button>
+      </>
+    );
+  };
 
   const add = (e: Event) => {
     e.preventDefault();
@@ -36,8 +60,8 @@ export function PantryView() {
         <div key={d} class="group">
           <h3>{d}</h3>
           {group.sort((a, b) => a.name.localeCompare(b.name, "pl")).map(p => p.always
-            ? <CheckRow key={p.name} label={p.name} sub="zawsze mam" checked disabled />
-            : <CheckRow key={p.name} label={p.name} checked={p.have} onChange={c => act({ action: "setPantry", name: p.name, have: c })} />)}
+            ? <CheckRow key={p.name} label={p.name} sub="zawsze mam" checked disabled>{actions(p)}</CheckRow>
+            : <CheckRow key={p.name} label={p.name} checked={p.have} onChange={c => act({ action: "setPantry", name: p.name, have: c })}>{actions(p)}</CheckRow>)}
         </div>
       ))}
       <form class="panel" onSubmit={add}>

@@ -8,11 +8,13 @@ export function MissBadge({ m, r }: { m: Model; r: Recipe }) {
 
 export const Empty = ({ children }: { children: preact.ComponentChildren }) => <div class="empty">{children}</div>;
 
-export function CheckRow(props: { checked?: boolean; disabled?: boolean; done?: boolean; onChange?: (checked: boolean) => void; label: string; sub?: string }) {
+export function CheckRow(props: { checked?: boolean; disabled?: boolean; done?: boolean; onChange?: (checked: boolean) => void; label: string; sub?: string; qty?: string; children?: preact.ComponentChildren }) {
   return (
     <label class={`check ${props.done ? "done" : ""}`}>
       <input type="checkbox" checked={props.checked} disabled={props.disabled} onChange={e => props.onChange?.(e.currentTarget.checked)} />
       <span class="lbl">{props.label}{props.sub && <span class="sub">{props.sub}</span>}</span>
+      {props.qty && <span class="qty">{props.qty}</span>}
+      {props.children}
     </label>
   );
 }

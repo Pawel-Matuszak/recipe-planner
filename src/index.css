@@ -108,7 +108,14 @@
     & input { @apply size-[22px] flex-none accent-basil; }
     & .lbl { @apply min-w-0 flex-1 wrap-anywhere; }
     & .sub { @apply block text-[.76rem] text-muted; }
-    &.done .lbl { @apply text-muted line-through; }
+    & .qty { @apply max-w-[40%] flex-none text-right font-bold tabular-nums; }
+    &.done .lbl, &.done .qty { @apply text-muted line-through; }
+    & .rowbtn {
+      @apply -my-1.5 grid size-9 flex-none place-items-center rounded-full text-muted;
+      & svg { @apply size-5; }
+      &[aria-pressed="true"] { @apply text-basil; }
+      &:disabled { @apply opacity-45; cursor: default; }
+    }
   }
 
   .panel { @apply mt-[18px] grid gap-2 rounded-card border border-line bg-surface p-3; }
