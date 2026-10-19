@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/pr
 import { afterEach, describe, expect, it } from "vitest";
 import { DEMO_URL, setConfig } from "../data/backend";
 import { createQueryClient } from "../data/queryClient";
-import { filtersOpen, resetFilters, tab } from "../state/ui";
+import { filtersOpen, openRecipe, resetFilters, tab } from "../state/ui";
 import { App } from "./App";
 
 function renderApp() {
@@ -12,7 +12,7 @@ function renderApp() {
   return render(<QueryClientProvider client={createQueryClient()}><App /></QueryClientProvider>);
 }
 
-afterEach(() => { cleanup(); tab.value = "przepisy"; filtersOpen.value = false; resetFilters(); });
+afterEach(() => { cleanup(); tab.value = "przepisy"; filtersOpen.value = false; openRecipe.value = null; resetFilters(); });
 
 describe("App with demo data", () => {
   it("narrows recipes from the filter sheet and clears a filter from its chip", async () => {
@@ -34,6 +34,16 @@ describe("App with demo data", () => {
     const ing = await screen.findByText("cukinia");
     fireEvent.click(ing.closest("button")!);
     await waitFor(() => expect(ing.closest("button")!.getAttribute("aria-pressed")).toBe("true"));
+  });
+
+  it("edits a recipe's steps from the recipe view", async () => {
+    renderApp();
+    fireEvent.click(await screen.findByText("Leczo"));
+    fireEvent.click(await screen.findByText("Edytuj"));
+    fireEvent.input(screen.getByLabelText("Kroki"), { target: { value: "Pokrój warzywa\nDuś 20 minut" } });
+    fireEvent.click(screen.getByText("Zapisz"));
+    expect(await screen.findByText("Duś 20 minut")).toBeTruthy();
+    expect(screen.queryByText("Zapisz")).toBeNull();
   });
 
   it("renders every tab", async () => {

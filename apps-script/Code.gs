@@ -137,6 +137,19 @@ const ACTIONS = {
     s.getRange(row, headerIndex_(s, pattern)).setValue(value);
   },
 
+  editRecipe(p) {
+    const s = sheet_(TABS.main);
+    const row = findRow_(s, headerIndex_(s, p.by === "name" ? /^nazwa$/ : /^id$/), p.key);
+    if (!row) throw new Error("Nie znaleziono przepisu: " + p.key);
+    // omitted fields stay as they are; new ingredients count as checked
+    if (p.desc !== undefined) s.getRange(row, headerIndex_(s, /^opis$/)).setValue(String(p.desc));
+    if (p.steps !== undefined) s.getRange(row, headerIndex_(s, /^przepis$/)).setValue(String(p.steps));
+    if (p.ing !== undefined) {
+      s.getRange(row, headerIndex_(s, /^składniki$/)).setValue(String(p.ing));
+      s.getRange(row, headerIndex_(s, /^składniki sprawdz/)).setValue(true);
+    }
+  },
+
   setPantry(p) {
     const s = sheet_(TABS.pantry);
     const row = findRow_(s, 1, p.name);

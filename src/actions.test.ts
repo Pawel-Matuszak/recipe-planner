@@ -22,6 +22,24 @@ describe("applyAction", () => {
     expect(buildModel(t).recipes[0].rate).toBe(0);
   });
 
+  it("edits description, steps and ingredients, marking ingredients as checked", () => {
+    const t = cloneTables(demoTables());
+    applyAction(t, { action: "editRecipe", by: "id", key: "r002", desc: "Nowy opis", steps: "Krok 1\nKrok 2", ing: "papryka: 2; cebula" });
+    const r = buildModel(t).recipes.find(x => x.id === "r002")!;
+    expect(r.desc).toBe("Nowy opis");
+    expect(r.steps).toEqual(["Krok 1", "Krok 2"]);
+    expect(r.ing.map(i => i.name)).toEqual(["papryka", "cebula"]);
+    expect(r.ver).toBe(true);
+  });
+
+  it("leaves ingredients unchecked when only steps are edited", () => {
+    const t = cloneTables(demoTables());
+    applyAction(t, { action: "editRecipe", by: "id", key: "r002", steps: "Jedyny krok" });
+    const r = buildModel(t).recipes.find(x => x.id === "r002")!;
+    expect(r.steps).toEqual(["Jedyny krok"]);
+    expect(r.ver).toBe(false);
+  });
+
   it("toggles pantry items and adds unknown ones", () => {
     const t = cloneTables(demoTables());
     applyAction(t, { action: "setPantry", name: "Boczek", have: true });

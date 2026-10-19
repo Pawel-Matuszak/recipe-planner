@@ -1,3 +1,4 @@
+import { useState } from "preact/hooks";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
@@ -21,21 +22,84 @@ function QueueIt({ m, r }: { m: Model; r: Recipe }) {
   );
 }
 
+const FIELD_CLS = "w-full resize-y rounded-[10px] border border-line bg-surface px-3 py-2.5";
+const lines = (s: string) => s.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+// textareas grow with their content so the whole recipe is visible without inner scrolling
+const rowsFor = (s: string, min: number) => Math.max(min, s.split("\n").length + 1);
+const ingText = (r: Recipe) => r.ing.map(i => (i.qty ? `${i.name}: ${i.qty.raw}` : i.name)).join("\n");
+
+/** Edits the description, steps (one per line) and ingredients (one per line, "name: amount"). */
+function RecipeEditor({ r, done }: { r: Recipe; done: () => void }) {
+  const act = useAct();
+  const [desc, setDesc] = useState(r.desc);
+  const [steps, setSteps] = useState(r.steps.join("\n"));
+  const [ing, setIng] = useState(ingText(r));
+  const save = () => {
+    const newIng = lines(ing).join("; ");
+    act({
+      action: "editRecipe", by: r.by, key: r.key, desc: desc.trim(), steps: lines(steps).join("\n"),
+      // only resend ingredients when they changed, so fixing a step doesn't mark them as checked
+      ...(newIng !== lines(ingText(r)).join("; ") && { ing: newIng }),
+    });
+    toast("Przepis zapisany");
+    done();
+  };
+
+  return (
+    <>
+      <div class="section">
+        <h3><label for="ed-desc">Opis</label></h3>
+        <textarea id="ed-desc" class={FIELD_CLS} rows={rowsFor(desc, 3)} value={desc} onInput={e => setDesc(e.currentTarget.value)} />
+      </div>
+      <div class="section">
+        <h3><label for="ed-ing">Składniki</label></h3>
+        <p class="text-[.85rem] text-muted">Jeden w linii, ilość po dwukropku, np. „makaron: 200 g”.</p>
+        <textarea id="ed-ing" class={FIELD_CLS} rows={rowsFor(ing, 5)} value={ing} onInput={e => setIng(e.currentTarget.value)} />
+      </div>
+      <div class="section">
+        <h3><label for="ed-steps">Kroki</label></h3>
+        <p class="text-[.85rem] text-muted">Jeden krok w linii.</p>
+        <textarea id="ed-steps" class={FIELD_CLS} rows={rowsFor(steps, 6)} value={steps} onInput={e => setSteps(e.currentTarget.value)} />
+      </div>
+      <div class="row mt-[18px]">
+        <button class="btn primary" onClick={save}>Zapisz</button>
+        <button class="btn ghost" onClick={done}>Anuluj</button>
+      </div>
+    </>
+  );
+}
+
 export function RecipeSheet() {
   const m = useModel();
   const r = useRecipe(openRecipe.value);
   const act = useAct();
+  const [editing, setEditing] = useState<string | null>(null); // id of the recipe being edited
   if (!r || !m) return null;
   const ings = r.ing.map(i => ({ i, st: ingState(m, i.name) })).sort((a, b) => ORDER[a.st] - ORDER[b.st]);
   const setField = (field: "done" | "rate" | "notes", value: boolean | number | string) =>
     act({ action: "setRecipeField", by: r.by, key: r.key, field, value });
-  const close = () => { openRecipe.value = null; randomMode.value = false; };
+  const close = () => { openRecipe.value = null; randomMode.value = false; setEditing(null); };
+
+  if (editing === r.id) {
+    return (
+      <div class="wrap pt-3 pb-10">
+        <div class="sticky top-0 z-[2] flex min-h-14 items-center justify-between gap-2 bg-bg py-2">
+          <button class="btn ghost" onClick={() => setEditing(null)}>‹ Wróć</button>
+        </div>
+        <h2>{r.name}</h2>
+        <RecipeEditor key={r.id} r={r} done={() => setEditing(null)} />
+      </div>
+    );
+  }
 
   return (
     <div class="wrap pt-3 pb-10">
       <div class="sticky top-0 z-[2] flex min-h-14 items-center justify-between gap-2 bg-bg py-2">
         <button class="btn ghost" onClick={close}>‹ Wróć</button>
-        {randomMode.value && <button class="btn primary" onClick={() => randomPick(m)}>Losuj jeszcze raz</button>}
+        <div class="row">
+          {randomMode.value && <button class="btn primary" onClick={() => randomPick(m)}>Losuj jeszcze raz</button>}
+          <button class="btn ghost" onClick={() => setEditing(r.id)}>Edytuj</button>
+        </div>
       </div>
       <h2>{r.name}</h2>
       {r.desc && <p class="mt-1.5 whitespace-pre-line text-muted">{r.desc}</p>}
@@ -66,7 +130,7 @@ export function RecipeSheet() {
               {i.qty && <span class="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
             </button>
           ))
-          : <div class="empty">Brak listy składników. Dopisz je w arkuszu w kolumnie „Składniki”, rozdzielając średnikami, ilość po dwukropku, np. „makaron: 200 g; jajka: 3; pieprz”.</div>}
+          : <div class="empty">Brak listy składników. Dodaj je przyciskiem „Edytuj” na górze.</div>}
       </div>
 
       {r.steps.length > 0 && (

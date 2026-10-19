@@ -4,7 +4,7 @@ A mobile app (PWA) for my recipes stored in Google Sheets. It shows what I can c
 keeps a list of dishes to cook, and builds the shopping list by itself.
 
 - **Recipes:** search, filters (time, type, category, "not made yet") and **"Mogę zrobić teraz"** (Can make now), which sorts by the fewest missing ingredients. Plus **Losuj** (Random) for days with no ideas.
-- **Recipe card:** description and steps, ingredients marked as have / missing (tap to toggle), recipe links, adding to the to-cook list, rating and a note.
+- **Recipe card:** description and steps, ingredients marked as have / missing (tap to toggle), recipe links, adding to the to-cook list, rating and a note. **Edytuj** (Edit) lets you fix the description, steps and ingredients in the app; saving changed ingredients marks them as checked.
 - **Plan (to cook):** a list of dishes without assigned days, either from recipes or typed in as text. Checking one off marks the dish as cooked.
 - **Shopping:** missing ingredients for all dishes on the to-cook list, grouped by store section, plus items added by hand.
 - **Pantry:** what I have at home. "Always have" items (salt, oil…) never count as missing.
