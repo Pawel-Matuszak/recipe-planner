@@ -5,6 +5,8 @@ import { norm, type Row, type Tables } from "./model";
 export type RecipeField = "done" | "rate" | "notes";
 export type Action =
   | { action: "setRecipeField"; by: "id" | "name"; key: string; field: RecipeField; value: boolean | number | string }
+  // omitted fields stay as they are; sending `ing` also marks the ingredients as checked
+  | { action: "editRecipe"; by: "id" | "name"; key: string; desc?: string; steps?: string; ing?: string }
   | { action: "setPantry"; name: string; have: boolean }
   | { action: "addPantry"; name: string; dzial: string }
   | { action: "removePantry"; name: string }
@@ -17,6 +19,7 @@ export type Action =
   | { action: "clearBoughtExtra" };
 
 const FIELD: Record<RecipeField, RegExp> = { done: /^było robione/, rate: /^ocena$/, notes: /^notatki$/ };
+const EDIT = { desc: /^opis$/, steps: /^przepis$/, ing: /^składniki$/, ver: /^składniki sprawdz/ };
 const cell = (v: boolean | number | string) => (typeof v === "boolean" ? (v ? "TRUE" : "FALSE") : String(v));
 const col = (header: Row, re: RegExp) => header.findIndex(h => re.test(norm(h)));
 const findIn = (rows: Row[], c: number, key: string) => rows.findIndex((r, i) => i > 0 && norm(r[c]) === norm(key));
@@ -32,6 +35,18 @@ export function applyAction(t: Tables, a: Action): void {
       const keyCol = col(h, a.by === "name" ? /^nazwa$/ : /^id$/), fieldCol = col(h, FIELD[a.field]);
       const i = keyCol < 0 ? -1 : findIn(t.main, keyCol, a.key);
       if (i > 0 && fieldCol >= 0) setCell(t.main[i], fieldCol, a.field === "rate" && !a.value ? "" : cell(a.value));
+      return;
+    }
+    case "editRecipe": {
+      const h = t.main[0] ?? [];
+      const keyCol = col(h, a.by === "name" ? /^nazwa$/ : /^id$/);
+      const i = keyCol < 0 ? -1 : findIn(t.main, keyCol, a.key);
+      if (i <= 0) return;
+      const put = (re: RegExp, v: string | undefined) => { const c = col(h, re); if (v !== undefined && c >= 0) setCell(t.main[i], c, v); };
+      put(EDIT.desc, a.desc);
+      put(EDIT.steps, a.steps);
+      put(EDIT.ing, a.ing);
+      if (a.ing !== undefined) put(EDIT.ver, "TRUE");
       return;
     }
     case "setPantry": {
