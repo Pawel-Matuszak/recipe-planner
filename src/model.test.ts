@@ -178,6 +178,7 @@ describe("ingredient amounts", () => {
     expect(sum("1/2 szklanki")).toBe("0,5 szklanki");
     expect(sum("3", "2 szt")).toBe("5 szt.");
     expect(sum("do smaku", "do smaku")).toBe("do smaku");
+    expect(sum("30 g", "40 g + 2 łyżki")).toBe("70 g + 2 łyżki");
     expect(sumQty([null, parseIng("x: 100 g").qty])).toBe("100 g");
     expect(sumQty([null])).toBe("");
   });
