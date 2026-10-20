@@ -89,11 +89,13 @@ function fmtUnit(value: number, unit: string): string {
   return word ? `${fmtNum(value)} ${word}` : fmtNum(value);
 }
 
+// "40 g + 2 łyżki" in one cell is two amounts, so each part can add up with other recipes
+const parts = (q: Qty | null): Qty[] => (!q ? [] : q.raw.includes("+") ? q.raw.split("+").map(parseQty).filter(x => x !== null) : [q]);
+
 /** Adds amounts of the same ingredient; units of different kinds are listed side by side ("200 ml + 2 łyżki"). */
 export function sumQty(qs: (Qty | null)[]): string {
   const sums = new Map<string, number>(), texts = new Set<string>();
-  for (const q of qs) {
-    if (!q) continue;
+  for (const q of qs.flatMap(parts)) {
     if (q.value === null) texts.add(q.raw);
     else sums.set(q.unit, (sums.get(q.unit) ?? 0) + q.value);
   }
