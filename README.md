@@ -4,7 +4,7 @@ A mobile app (PWA) for my recipes stored in Google Sheets. It shows what I can c
 keeps a list of dishes to cook, and builds the shopping list by itself.
 
 - **Recipes:** search, filters (time, type, category, "not made yet") and **"Mogę zrobić teraz"** (Can make now), which sorts by the fewest missing ingredients. Plus **Losuj** (Random) for days with no ideas.
-- **Recipe card:** description and steps, ingredients marked as have / missing (tap to toggle), recipe links, adding to the to-cook list, rating and a note. **Edytuj** (Edit) lets you fix the description, steps and ingredients in the app; saving changed ingredients marks them as checked.
+- **Recipe card:** description and steps, ingredients marked as have / missing (tap to toggle), recipe links, adding to the to-cook list, rating and a note. **Edytuj** (Edit) lets you fix the description, steps and ingredients in the app; saving changed ingredients marks them as checked. Ingredient names missing from the pantry are shown in red, with a suggested pantry name to switch to (other word order, missing Polish letters, typos) or a button to add them to the pantry as a new product.
 - **Plan (to cook):** a list of dishes without assigned days, either from recipes or typed in as text. Checking one off marks the dish as cooked.
 - **Shopping:** missing ingredients for all dishes on the to-cook list, grouped by store section, plus items added by hand.
 - **Pantry:** what I have at home. "Always have" items (salt, oil…) never count as missing.
@@ -24,7 +24,7 @@ iPhone (PWA, GitHub Pages) ──fetch + token──▶ Apps Script web app ─�
   - `state/`: UI state (Preact signals): current tab, filters, open recipe.
   - `components/`: Preact views.
 - `apps-script/Code.gs`: backend bound to the spreadsheet. `GET ?action=all` returns the whole sheet, and `POST` accepts the actions from `src/actions.ts`.
-- Spreadsheet: tabs `Main` (recipes, columns are matched by header, e.g. `Opis` for the description and `Przepis` for the steps, one per line), `Spiżarnia` (pantry), `Plan2` and `Zakupy_extra` (extra shopping items).
+- Spreadsheet: tabs `Main` (recipes, columns are matched by header, e.g. `Opis` for the description and `Przepis` for the steps, one per line; `Poza bazą` is a formula listing ingredients missing from `Spiżarnia`, and those rows are highlighted red), `Spiżarnia` (pantry), `Plan2` and `Zakupy_extra` (extra shopping items).
 
 The script URL and token are **not in the repo**. You enter them once in the app's Settings and they stay on the phone.
 

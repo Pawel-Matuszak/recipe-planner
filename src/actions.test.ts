@@ -49,6 +49,17 @@ describe("applyAction", () => {
     expect(m.pantry.get("szafran")).toMatchObject({ dzial: "Inne", have: true });
   });
 
+  it("adds a new product from a recipe as not had, leaving existing items alone", () => {
+    const t = cloneTables(demoTables());
+    applyAction(t, { action: "addPantry", name: "pinsa", dzial: "Pieczywo", have: false });
+    applyAction(t, { action: "addPantry", name: "Jajka", dzial: "Inne", have: false });
+    applyAction(t, { action: "addPantry", name: "szafran", dzial: "Sosy i przyprawy" });
+    const m = buildModel(t);
+    expect(m.pantry.get("pinsa")).toMatchObject({ dzial: "Pieczywo", have: false });
+    expect(m.pantry.get("jajka")).toMatchObject({ dzial: "Nabiał i jajka", have: true });
+    expect(m.pantry.get("szafran")).toMatchObject({ have: true });
+  });
+
   it("removes pantry items", () => {
     const t = cloneTables(demoTables());
     applyAction(t, { action: "removePantry", name: "Boczek" });

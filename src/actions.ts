@@ -8,7 +8,8 @@ export type Action =
   // omitted fields stay as they are; sending `ing` also marks the ingredients as checked
   | { action: "editRecipe"; by: "id" | "name"; key: string; desc?: string; steps?: string; ing?: string }
   | { action: "setPantry"; name: string; have: boolean }
-  | { action: "addPantry"; name: string; dzial: string }
+  // `have` defaults to true; a new product added from a recipe goes in as "nie mam"
+  | { action: "addPantry"; name: string; dzial: string; have?: boolean }
   | { action: "removePantry"; name: string }
   | { action: "addPlan"; date: string; meal: string; id: string; text: string }
   | { action: "removePlan"; date: string; meal: string; id: string; text: string }
@@ -57,8 +58,9 @@ export function applyAction(t: Tables, a: Action): void {
     }
     case "addPantry": {
       const i = findIn(t.pantry, 0, a.name);
-      if (i > 0) setCell(t.pantry[i], 2, "TRUE");
-      else t.pantry.push([a.name.trim(), a.dzial || "Inne", "TRUE", "FALSE"]);
+      const have = a.have !== false;
+      if (i > 0) { if (have) setCell(t.pantry[i], 2, "TRUE"); }
+      else t.pantry.push([a.name.trim(), a.dzial || "Inne", cell(have), "FALSE"]);
       return;
     }
     case "removePantry": {
