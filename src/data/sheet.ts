@@ -1,5 +1,5 @@
 // Hooks the components use: the model, writes, sync status and connection changes.
-import { useIsMutating, useMutation, useMutationState, useQuery, type QueryClient } from "@tanstack/preact-query";
+import { useIsMutating, useMutation, useMutationState, useQuery, type QueryClient } from "@tanstack/react-query";
 import type { Action } from "../actions";
 import { buildModel, type Model, type Recipe, type Tables } from "../model";
 import { toast } from "../state/toast";

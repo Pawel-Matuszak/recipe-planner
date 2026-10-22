@@ -1,5 +1,8 @@
 node_modules
-dist
-dev-dist
-.env.local
+.next
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+.env*.local
 *.log
+.playwright-mcp

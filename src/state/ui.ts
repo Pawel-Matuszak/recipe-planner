@@ -1,5 +1,5 @@
 // UI-only state (what's open, filters, search). Sheet data lives in the query cache, not here.
-import { effect, signal } from "@preact/signals";
+import { effect, signal } from "@preact/signals-react";
 import { KEYS, store } from "../data/storage";
 import type { Filters } from "../model";
 

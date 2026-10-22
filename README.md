@@ -14,10 +14,14 @@ Works offline: data is stored on the phone, and changes wait in a queue and are 
 ## Architecture
 
 ```
-iPhone (PWA, GitHub Pages) ──fetch + token──▶ Apps Script web app ──▶ "Obiadki2" spreadsheet
+iPhone (PWA, Next.js) ──fetch + token──▶ Apps Script web app ──▶ "Obiadki2" spreadsheet
 ```
 
-- `src/`: frontend (Vite + Preact + TypeScript, TanStack Query, Tailwind CSS).
+> Migration in progress (branch `db-migration`): moving to Next.js on Vercel with Neon Postgres, Prisma and Better Auth.
+> Phase 1 (done): the app runs on Next.js + React. It still talks to Apps Script.
+
+- `src/`: frontend (Next.js App Router + React + TypeScript, TanStack Query, Tailwind CSS, Serwist for the PWA).
+  - `app/`: Next.js entry: layout, the single client page, web manifest and service worker (`sw.ts`, served by `serwist/[path]/route.ts`).
   - `model.ts`: pure functions (missing ingredients, filters, shopping list). The whole sheet is loaded once and filtered on the phone.
   - `actions.ts`: writes applied locally (optimistically) and in demo mode.
   - `data/`: Apps Script client (`backend.ts`) and TanStack Query (`queryClient.ts`, `sheet.ts`). Data and unsent changes are saved to `localStorage` by the persister, so the app works offline and changes are sent in order once the connection is back.
@@ -56,9 +60,18 @@ npm install
 npm run dev:mock   # app with sample data, no spreadsheet needed
 npm run dev        # app with the real spreadsheet (URL and token in Settings)
 npm test           # model, action, sync and view tests (vitest)
-npm run build      # production build to dist/
+npm run typecheck  # tsc
+npm run build      # production build (Next.js, .next/)
 npm run icons      # generate PWA icons into public/icons
 ```
 
-A push to `main` runs the tests, the build and the deploy to GitHub Pages (`.github/workflows/deploy.yml`).
-In the repo settings: **Settings → Pages → Source: GitHub Actions**.
+Local database (needs Docker Desktop running): `cp .env.example .env.local`, then
+
+```bash
+npm run db:up      # Postgres 17 on localhost:54322, databases `obiadki` (dev) and `obiadki_test` (tests)
+npm run db:down    # stop it (data is kept in a Docker volume)
+npm run db:reset   # stop and wipe all local data
+```
+
+CI (`.github/workflows/ci.yml`) runs the typecheck, tests and build on every PR and push to `main`.
+Deploys will go through Vercel's Git integration (set up in a later migration phase).

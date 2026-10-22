@@ -1,4 +1,5 @@
-import { useEffect } from "preact/hooks";
+import { useSignals } from "@preact/signals-react/runtime";
+import { useEffect } from "react";
 import { config } from "../data/backend";
 import { toastMsg } from "../state/toast";
 import { openRecipe, randomMode, settingsOpen, tab, type Tab } from "../state/ui";
@@ -16,12 +17,13 @@ const TABS: [Tab, string][] = [["przepisy", "Przepisy"], ["plan", "Plan"], ["zak
 const VIEWS = { przepisy: RecipesView, plan: PlanView, zakupy: ShoppingView, spizarnia: PantryView };
 
 function TabBar() {
+  useSignals();
   const go = (k: Tab) => { tab.value = k; window.scrollTo(0, 0); };
   return (
-    <nav class="fixed inset-x-0 bottom-0 z-25 grid grid-cols-[repeat(4,minmax(0,170px))] justify-center border-t border-line bg-surface"
+    <nav className="fixed inset-x-0 bottom-0 z-25 grid grid-cols-[repeat(4,minmax(0,170px))] justify-center border-t border-line bg-surface"
       style={{ padding: "0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)" }} aria-label="Sekcje">
       {TABS.map(([k, label]) => (
-        <button key={k} class={`grid h-tab place-items-center content-center gap-0.5 text-[.78rem] font-bold [&_svg]:size-6 ${tab.value === k ? "text-basil" : "text-muted"}`}
+        <button key={k} className={`grid h-tab place-items-center content-center gap-0.5 text-[.78rem] font-bold [&_svg]:size-6 ${tab.value === k ? "text-basil" : "text-muted"}`}
           aria-current={tab.value === k ? "page" : undefined} onClick={() => go(k)}>
           <Icon name={k} /><span>{label}</span>
         </button>
@@ -31,6 +33,7 @@ function TabBar() {
 }
 
 function Overlay() {
+  useSignals();
   const showSettings = settingsOpen.value || !config.value;
   const open = showSettings || !!openRecipe.value;
   useEffect(() => {
@@ -38,17 +41,18 @@ function Overlay() {
   }, [open]);
   if (!open) return null;
   return (
-    <div class="fixed inset-0 z-40 overflow-y-auto bg-bg" style={{ padding: "env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px)" }}>
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-bg" style={{ padding: "env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px)" }}>
       {showSettings ? <SettingsSheet /> : <RecipeSheet />}
     </div>
   );
 }
 
 function Toast() {
+  useSignals();
   const t = toastMsg.value;
   if (!t) return null;
   return (
-    <div key={t.id} role="status" class="toast fixed left-1/2 z-50 max-w-[calc(100%-32px)] -translate-x-1/2 rounded-full bg-ink px-4 py-2.5 text-[.9rem] text-bg shadow-[0_6px_20px_rgb(0_0_0/.2)]"
+    <div key={t.id} role="status" className="toast fixed left-1/2 z-50 max-w-[calc(100%-32px)] -translate-x-1/2 rounded-full bg-ink px-4 py-2.5 text-[.9rem] text-bg shadow-[0_6px_20px_rgb(0_0_0/.2)]"
       style={{ bottom: "calc(var(--spacing-tab) + 14px + env(safe-area-inset-bottom, 0px))" }}>
       {t.text}
     </div>
@@ -56,6 +60,7 @@ function Toast() {
 }
 
 export function App() {
+  useSignals();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -69,7 +74,7 @@ export function App() {
   const View = VIEWS[tab.value];
   return (
     <>
-      <div class="wrap" style={{ paddingBottom: "calc(var(--spacing-tab) + 24px + env(safe-area-inset-bottom, 0px))" }}>
+      <div className="wrap" style={{ paddingBottom: "calc(var(--spacing-tab) + 24px + env(safe-area-inset-bottom, 0px))" }}>
         <Header />
         <main><View /></main>
       </div>

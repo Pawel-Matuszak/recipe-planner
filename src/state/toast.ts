@@ -1,4 +1,4 @@
-import { signal } from "@preact/signals";
+import { signal } from "@preact/signals-react";
 
 export const toastMsg = signal<{ text: string; id: number } | null>(null);
 let timer: ReturnType<typeof setTimeout> | undefined;

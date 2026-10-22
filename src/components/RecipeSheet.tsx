@@ -1,4 +1,5 @@
-import { useState } from "preact/hooks";
+import { useSignals } from "@preact/signals-react/runtime";
+import { useState } from "react";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
@@ -12,12 +13,13 @@ const ORDER: Record<IngState, number> = { miss: 0, have: 1, always: 2 };
 const MARK: Record<IngState, string> = { miss: "bg-paprika-soft text-paprika", have: "bg-basil-soft text-basil", always: "bg-line text-muted" };
 
 function QueueIt({ m, r }: { m: Model; r: Recipe }) {
+  useSignals();
   const add = useQueueAdd();
   const queued = m.plan.some(p => p.id === r.id && !p.cooked);
   return (
-    <div class="section">
+    <div className="section">
       <h3>Do ugotowania</h3>
-      <button class="btn primary" disabled={queued} onClick={() => add(r.id, "")}>{queued ? "Już na liście do ugotowania" : "Dodaj do ugotowania"}</button>
+      <button className="btn primary" disabled={queued} onClick={() => add(r.id, "")}>{queued ? "Już na liście do ugotowania" : "Dodaj do ugotowania"}</button>
     </div>
   );
 }
@@ -30,6 +32,7 @@ const ingText = (r: Recipe) => r.ing.map(i => (i.qty ? `${i.name}: ${i.qty.raw}`
 
 /** Names in the ingredient field that aren't in the pantry: swap one for a close pantry name or add it as a new product. */
 function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setText: (s: string) => void }) {
+  useSignals();
   const act = useAct();
   const [fresh, setFresh] = useState<string[]>([]); // marked "To nowy składnik", so no more suggestion
   const [dzial, setDzial] = useState<Record<string, string>>({});
@@ -49,36 +52,36 @@ function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setT
   };
 
   return (
-    <div class="mt-2.5 grid gap-2">
-      <p class="text-[.85rem] text-muted">Tych nazw nie ma w spiżarni. Zamień na istniejącą albo dodaj jako nowy składnik.</p>
+    <div className="mt-2.5 grid gap-2">
+      <p className="text-[.85rem] text-muted">Tych nazw nie ma w spiżarni. Zamień na istniejącą albo dodaj jako nowy składnik.</p>
       {names.map(n => {
         const isNew = fresh.includes(norm(n));
         const s = isNew ? null : suggestIngredient(n, m.pantry);
         const similar = isNew || s ? [] : similarIngredients(n, m.pantry);
         return (
-          <div key={norm(n)} class="grid gap-2 rounded-[10px] border border-paprika-soft bg-surface px-3 py-2.5">
-            <span class="font-bold text-paprika">{n}</span>
+          <div key={norm(n)} className="grid gap-2 rounded-[10px] border border-paprika-soft bg-surface px-3 py-2.5">
+            <span className="font-bold text-paprika">{n}</span>
             {s
               ? <>
                 <span>Czy chodziło o „{s}”?</span>
-                <div class="row">
-                  <button class="btn primary" onClick={() => swap(n, s)}>Zamień na „{s}”</button>
-                  <button class="btn ghost" onClick={() => setFresh([...fresh, norm(n)])}>To nowy składnik</button>
+                <div className="row">
+                  <button className="btn primary" onClick={() => swap(n, s)}>Zamień na „{s}”</button>
+                  <button className="btn ghost" onClick={() => setFresh([...fresh, norm(n)])}>To nowy składnik</button>
                 </div>
               </>
               : <>
                 {similar.length > 0 && <>
                   <span>Podobne w bazie:</span>
-                  <div class="row">
-                    {similar.map(x => <button key={x} class="btn ghost" onClick={() => swap(n, x)}>Zamień na „{x}”</button>)}
+                  <div className="row">
+                    {similar.map(x => <button key={x} className="btn ghost" onClick={() => swap(n, x)}>Zamień na „{x}”</button>)}
                   </div>
-                  <span class="text-[.85rem] text-muted">Albo dodaj jako nowy składnik:</span>
+                  <span className="text-[.85rem] text-muted">Albo dodaj jako nowy składnik:</span>
                 </>}
-                <div class="row">
-                  <select class="field" aria-label={`Dział: ${n}`} value={dzial[norm(n)] ?? "Inne"} onChange={e => setDzial({ ...dzial, [norm(n)]: e.currentTarget.value })}>
+                <div className="row">
+                  <select className="field" aria-label={`Dział: ${n}`} value={dzial[norm(n)] ?? "Inne"} onChange={e => setDzial({ ...dzial, [norm(n)]: e.currentTarget.value })}>
                     {DZIALY.map(d => <option key={d}>{d}</option>)}
                   </select>
-                  <button class="btn primary" onClick={() => add(n)}>Dodaj do bazy</button>
+                  <button className="btn primary" onClick={() => add(n)}>Dodaj do bazy</button>
                 </div>
               </>}
           </div>
@@ -90,6 +93,7 @@ function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setT
 
 /** Edits the description, steps (one per line) and ingredients (one per line, "name: amount"). */
 function RecipeEditor({ m, r, done }: { m: Model; r: Recipe; done: () => void }) {
+  useSignals();
   const act = useAct();
   const [desc, setDesc] = useState(r.desc);
   const [steps, setSteps] = useState(r.steps.join("\n"));
@@ -108,36 +112,37 @@ function RecipeEditor({ m, r, done }: { m: Model; r: Recipe; done: () => void })
 
   return (
     <>
-      <div class="section">
-        <h3><label for="ed-desc">Opis</label></h3>
-        <textarea id="ed-desc" class={FIELD_CLS} rows={rowsFor(desc, 3)} value={desc} onInput={e => setDesc(e.currentTarget.value)} />
+      <div className="section">
+        <h3><label htmlFor="ed-desc">Opis</label></h3>
+        <textarea id="ed-desc" className={FIELD_CLS} rows={rowsFor(desc, 3)} value={desc} onChange={e => setDesc(e.currentTarget.value)} />
       </div>
-      <div class="section">
-        <h3><label for="ed-ing">Składniki</label></h3>
-        <p class="text-[.85rem] text-muted">Jeden w linii, ilość po dwukropku, np. „makaron: 200 g”.</p>
-        <textarea id="ed-ing" class={FIELD_CLS} rows={rowsFor(ing, 5)} value={ing} onInput={e => setIng(e.currentTarget.value)} />
-        <form class="row mt-2" onSubmit={e => { e.preventDefault(); if (next.trim()) { setIng([...lines(ing), next.trim()].join("\n")); setNext(""); } }}>
-          <input class="field flex-1" list="pantry-names" aria-label="Nowy składnik" placeholder="np. masło: 50 g" autocomplete="off"
-            value={next} onInput={e => setNext(e.currentTarget.value)} />
-          <button class="btn ghost" type="submit">Dodaj</button>
+      <div className="section">
+        <h3><label htmlFor="ed-ing">Składniki</label></h3>
+        <p className="text-[.85rem] text-muted">Jeden w linii, ilość po dwukropku, np. „makaron: 200 g”.</p>
+        <textarea id="ed-ing" className={FIELD_CLS} rows={rowsFor(ing, 5)} value={ing} onChange={e => setIng(e.currentTarget.value)} />
+        <form className="row mt-2" onSubmit={e => { e.preventDefault(); if (next.trim()) { setIng([...lines(ing), next.trim()].join("\n")); setNext(""); } }}>
+          <input className="field flex-1" list="pantry-names" aria-label="Nowy składnik" placeholder="np. masło: 50 g" autoComplete="off"
+            value={next} onChange={e => setNext(e.currentTarget.value)} />
+          <button className="btn ghost" type="submit">Dodaj</button>
         </form>
         <datalist id="pantry-names">{[...m.pantry.values()].map(p => <option key={p.name} value={p.name} />)}</datalist>
         <UnknownIngredients m={m} text={ing} setText={setIng} />
       </div>
-      <div class="section">
-        <h3><label for="ed-steps">Kroki</label></h3>
-        <p class="text-[.85rem] text-muted">Jeden krok w linii.</p>
-        <textarea id="ed-steps" class={FIELD_CLS} rows={rowsFor(steps, 6)} value={steps} onInput={e => setSteps(e.currentTarget.value)} />
+      <div className="section">
+        <h3><label htmlFor="ed-steps">Kroki</label></h3>
+        <p className="text-[.85rem] text-muted">Jeden krok w linii.</p>
+        <textarea id="ed-steps" className={FIELD_CLS} rows={rowsFor(steps, 6)} value={steps} onChange={e => setSteps(e.currentTarget.value)} />
       </div>
-      <div class="row mt-[18px]">
-        <button class="btn primary" onClick={save}>Zapisz</button>
-        <button class="btn ghost" onClick={done}>Anuluj</button>
+      <div className="row mt-[18px]">
+        <button className="btn primary" onClick={save}>Zapisz</button>
+        <button className="btn ghost" onClick={done}>Anuluj</button>
       </div>
     </>
   );
 }
 
 export function RecipeSheet() {
+  useSignals();
   const m = useModel();
   const r = useRecipe(openRecipe.value);
   const act = useAct();
@@ -150,9 +155,9 @@ export function RecipeSheet() {
 
   if (editing === r.id) {
     return (
-      <div class="wrap pt-3 pb-10">
-        <div class="sticky top-0 z-[2] flex min-h-14 items-center justify-between gap-2 bg-bg py-2">
-          <button class="btn ghost" onClick={() => setEditing(null)}>‹ Wróć</button>
+      <div className="wrap pt-3 pb-10">
+        <div className="sticky top-0 z-[2] flex min-h-14 items-center justify-between gap-2 bg-bg py-2">
+          <button className="btn ghost" onClick={() => setEditing(null)}>‹ Wróć</button>
         </div>
         <h2>{r.name}</h2>
         <RecipeEditor key={r.id} m={m} r={r} done={() => setEditing(null)} />
@@ -161,57 +166,57 @@ export function RecipeSheet() {
   }
 
   return (
-    <div class="wrap pt-3 pb-10">
-      <div class="sticky top-0 z-[2] flex min-h-14 items-center justify-between gap-2 bg-bg py-2">
-        <button class="btn ghost" onClick={close}>‹ Wróć</button>
-        <div class="row">
-          {randomMode.value && <button class="btn primary" onClick={() => randomPick(m)}>Losuj jeszcze raz</button>}
-          <button class="btn ghost" onClick={() => setEditing(r.id)}>Edytuj</button>
+    <div className="wrap pt-3 pb-10">
+      <div className="sticky top-0 z-[2] flex min-h-14 items-center justify-between gap-2 bg-bg py-2">
+        <button className="btn ghost" onClick={close}>‹ Wróć</button>
+        <div className="row">
+          {randomMode.value && <button className="btn primary" onClick={() => randomPick(m)}>Losuj jeszcze raz</button>}
+          <button className="btn ghost" onClick={() => setEditing(r.id)}>Edytuj</button>
         </div>
       </div>
       <h2>{r.name}</h2>
-      {r.desc && <p class="mt-1.5 whitespace-pre-line text-muted">{r.desc}</p>}
-      <div class="row mt-2.5">
+      {r.desc && <p className="mt-1.5 whitespace-pre-line text-muted">{r.desc}</p>}
+      <div className="row mt-2.5">
         <MissBadge m={m} r={r} />
-        {r.time > 0 && <span class="badge b-unk">{r.time} min</span>}
-        {r.diff && <span class="badge b-unk">{r.diff}</span>}
-        {r.ing.length > 0 && !r.ver && <span class="badge b-warn">składniki do sprawdzenia</span>}
+        {r.time > 0 && <span className="badge b-unk">{r.time} min</span>}
+        {r.diff && <span className="badge b-unk">{r.diff}</span>}
+        {r.ing.length > 0 && !r.ver && <span className="badge b-warn">składniki do sprawdzenia</span>}
       </div>
       {r.links.length > 0 && (
-        <div class="row mt-2.5">
+        <div className="row mt-2.5">
           {r.links.map((l, k) => (
-            <a key={l} class="btn primary" href={/^https?:/i.test(l) ? l : "https://" + l} target="_blank" rel="noopener">
+            <a key={l} className="btn primary" href={/^https?:/i.test(l) ? l : "https://" + l} target="_blank" rel="noopener">
               {linkLabel(l)}{r.links.length > 1 ? " " + (k + 1) : ""} ↗
             </a>
           ))}
         </div>
       )}
 
-      <div class="section">
+      <div className="section">
         <h3>Składniki{r.ing.length ? ` · ${r.ing.length}` : ""}</h3>
         {r.ing.length
           ? ings.map(({ i, st }) => (
-            <button key={i.name} class="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
+            <button key={i.name} className="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
               onClick={() => act({ action: "setPantry", name: i.name, have: st === "miss" })}>
-              <span class={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
-              <span class="min-w-0 flex-1">{i.name}
-                {st === "always" && <span class="block text-[.75rem] text-muted">zawsze mam</span>}
-                {!m.pantry.has(norm(i.name)) && <span class="block text-[.75rem] text-paprika">poza bazą, popraw w „Edytuj”</span>}
+              <span className={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
+              <span className="min-w-0 flex-1">{i.name}
+                {st === "always" && <span className="block text-[.75rem] text-muted">zawsze mam</span>}
+                {!m.pantry.has(norm(i.name)) && <span className="block text-[.75rem] text-paprika">poza bazą, popraw w „Edytuj”</span>}
               </span>
-              {i.qty && <span class="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
+              {i.qty && <span className="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
             </button>
           ))
-          : <div class="empty">Brak listy składników. Dodaj je przyciskiem „Edytuj” na górze.</div>}
+          : <div className="empty">Brak listy składników. Dodaj je przyciskiem „Edytuj” na górze.</div>}
       </div>
 
       {r.steps.length > 0 && (
-        <div class="section">
+        <div className="section">
           <h3>Przepis</h3>
-          <ol class="grid gap-2.5">
+          <ol className="grid gap-2.5">
             {r.steps.map((s, k) => (
-              <li key={k} class="flex gap-2.5">
-                <span class="grid size-6 flex-none place-items-center rounded-full bg-line text-[.85rem] font-extrabold">{k + 1}</span>
-                <span class="min-w-0 flex-1 pt-0.5">{s}</span>
+              <li key={k} className="flex gap-2.5">
+                <span className="grid size-6 flex-none place-items-center rounded-full bg-line text-[.85rem] font-extrabold">{k + 1}</span>
+                <span className="min-w-0 flex-1 pt-0.5">{s}</span>
               </li>
             ))}
           </ol>
@@ -220,22 +225,22 @@ export function RecipeSheet() {
 
       <QueueIt m={m} r={r} />
 
-      <div class="section">
+      <div className="section">
         <h3>Po zrobieniu</h3>
-        <label class="flex items-center gap-2.5 font-bold">
-          <input type="checkbox" class="size-[22px] accent-basil" checked={r.done} onChange={e => setField("done", e.currentTarget.checked)} /> Było robione
+        <label className="flex items-center gap-2.5 font-bold">
+          <input type="checkbox" className="size-[22px] accent-basil" checked={r.done} onChange={e => setField("done", e.currentTarget.checked)} /> Było robione
         </label>
-        <div class="flex gap-0.5" role="group" aria-label="Ocena">
+        <div className="flex gap-0.5" role="group" aria-label="Ocena">
           {[1, 2, 3, 4, 5].map(n => (
-            <button key={n} class={`p-1 text-[1.7rem] leading-none ${n <= r.rate ? "text-saffron" : "text-line"}`} aria-label={`${n} na 5`}
+            <button key={n} className={`p-1 text-[1.7rem] leading-none ${n <= r.rate ? "text-saffron" : "text-line"}`} aria-label={`${n} na 5`}
               onClick={() => setField("rate", n === r.rate ? "" : n)}>★</button>
           ))}
         </div>
-        <textarea key={r.id} class="min-h-[84px] w-full resize-y rounded-[10px] border border-line bg-surface px-3 py-2.5"
+        <textarea key={r.id} className="min-h-[84px] w-full resize-y rounded-[10px] border border-line bg-surface px-3 py-2.5"
           placeholder="Notatka na następny raz, np. mniej soli, podwójny sos" defaultValue={r.notes}
-          onChange={e => { const v = e.currentTarget.value; if (v !== r.notes) { setField("notes", v); toast("Notatka zapisana"); } }} />
+          onBlur={e => { const v = e.currentTarget.value; if (v !== r.notes) { setField("notes", v); toast("Notatka zapisana"); } }} />
       </div>
-      <p class="count">{r.type}{r.cats.length ? " · " + r.cats.join(", ") : ""}</p>
+      <p className="count">{r.type}{r.cats.length ? " · " + r.cats.join(", ") : ""}</p>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // TanStack Query setup: one query holds the whole sheet; every write is an optimistic, persisted, ordered mutation.
-import { QueryClient, type Mutation } from "@tanstack/preact-query";
+import { QueryClient, type Mutation } from "@tanstack/react-query";
 
 type AnyMutation = Mutation<unknown, Error, unknown, unknown>;
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";

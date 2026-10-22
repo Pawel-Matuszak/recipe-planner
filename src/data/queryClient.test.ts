@@ -1,4 +1,4 @@
-import { dehydrate, hydrate, MutationObserver, onlineManager } from "@tanstack/preact-query";
+import { dehydrate, hydrate, MutationObserver, onlineManager } from "@tanstack/react-query";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Action } from "../actions";
 import { demoTables } from "../mock";

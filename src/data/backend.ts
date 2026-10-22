@@ -1,5 +1,5 @@
 // Talks to the Apps Script web app (apps-script/Code.gs), or to in-memory demo data.
-import { signal } from "@preact/signals";
+import { signal } from "@preact/signals-react";
 import { applyAction, cloneTables, type Action } from "../actions";
 import { demoTables } from "../mock";
 import type { Tables } from "../model";
@@ -21,7 +21,7 @@ export const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiE
 export const DEMO_URL = "demo";
 
 function loadConfig(): Config | null {
-  if (import.meta.env.MODE === "mock") return { url: DEMO_URL, token: "" };
+  if (process.env.NEXT_PUBLIC_DEMO === "1") return { url: DEMO_URL, token: "" };
   const c = store.get<Config>(KEYS.config);
   return c && c.url ? c : null;
 }
