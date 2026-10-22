@@ -46,6 +46,22 @@ describe("App with demo data", () => {
     expect(screen.queryByText("Zapisz")).toBeNull();
   });
 
+  it("offers a pantry name for a misspelled ingredient and adds a new one to the pantry", async () => {
+    renderApp();
+    fireEvent.click(await screen.findByText("Leczo"));
+    fireEvent.click(await screen.findByText("Edytuj"));
+    const field = screen.getByLabelText("Składniki") as HTMLTextAreaElement;
+    fireEvent.input(field, { target: { value: "cebula: 2\npomidor: 4\npinsa" } });
+    fireEvent.click(await screen.findByText("Zamień na „pomidory”"));
+    expect(field.value).toBe("cebula: 2\npomidory: 4\npinsa");
+    fireEvent.change(screen.getByLabelText("Dział: pinsa"), { target: { value: "Pieczywo" } });
+    fireEvent.click(screen.getByText("Dodaj do bazy"));
+    await waitFor(() => expect(screen.queryByText("Dodaj do bazy")).toBeNull());
+    fireEvent.click(screen.getByText("Zapisz"));
+    expect(await screen.findByText("pinsa")).toBeTruthy();
+    expect(screen.queryByText(/poza bazą/)).toBeNull();
+  });
+
   it("renders every tab", async () => {
     renderApp();
     await screen.findByText("Carbonara");

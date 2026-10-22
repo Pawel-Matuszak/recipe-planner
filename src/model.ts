@@ -171,6 +171,65 @@ export function ingState(m: Model, name: string): IngState {
 }
 export const missingOf = (m: Model, r: Recipe) => r.ing.filter(i => ingState(m, i.name) === "miss");
 
+/* ---------- matching names to the pantry: "maslo orzechowe" → "masło orzechowe" ---------- */
+
+const PL: Record<string, string> = { ą: "a", ć: "c", ę: "e", ł: "l", ń: "n", ó: "o", ś: "s", ź: "z", ż: "z" };
+export const foldPl = (s: string) => norm(s).replace(/[ąćęłńóśźż]/g, c => PL[c]).replace(/\s+/g, " ");
+const wordsOf = (s: string) => foldPl(s).split(" ").filter(Boolean).sort();
+
+function lev(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/**
+ * Pantry name that is surely the same product as an ingredient that isn't in the pantry: the same words in any
+ * order without Polish letters, or a typo. Null when it is in the pantry or nothing is that close; one name
+ * containing the other ("jogurt" in "jogurt naturalny") is left to `similarIngredients`, as it may be another product.
+ */
+export function suggestIngredient(name: string, pantry: Map<string, PantryItem>): string | null {
+  if (!norm(name) || pantry.has(norm(name))) return null;
+  const key = wordsOf(name).join(" ");
+  const items = [...pantry.values()].map(p => ({ name: p.name, w: wordsOf(p.name) }));
+  const same = items.find(p => p.w.join(" ") === key);
+  if (same) return same.name;
+
+  const maxTypo = key.length <= 4 ? 0 : key.length <= 8 ? 1 : 2;
+  let best: { name: string; d: number } | null = null;
+  for (const p of items) {
+    const d = lev(key, p.w.join(" "));
+    if (d <= maxTypo && (!best || d < best.d)) best = { name: p.name, d };
+  }
+  return best?.name ?? null;
+}
+
+/**
+ * Pantry names sharing a word with an unknown ingredient ("jogurt naturalny" → "jogurt grecki"). Weaker than
+ * `suggestIngredient`: they may be different products, so the UI offers them next to adding a new one.
+ * Names sharing the first word come first, then more shared words, then shorter names.
+ */
+export function similarIngredients(name: string, pantry: Map<string, PantryItem>, limit = 3): string[] {
+  if (!norm(name) || pantry.has(norm(name))) return [];
+  const w = wordsOf(name).filter(x => x.length >= 3), first = foldPl(name).split(" ")[0];
+  return [...pantry.values()]
+    .map(p => {
+      const pw = wordsOf(p.name);
+      return { name: p.name, head: foldPl(p.name).split(" ")[0] === first ? 1 : 0, shared: w.filter(x => pw.includes(x)).length };
+    })
+    .filter(p => p.shared > 0)
+    .sort((a, b) => b.head - a.head || b.shared - a.shared || a.name.length - b.name.length || a.name.localeCompare(b.name, "pl"))
+    .slice(0, limit)
+    .map(p => p.name);
+}
+
+/** Ingredients of a recipe that aren't in the pantry at all (typos, new products). */
+export const unknownOf = (m: Model, r: Recipe) => r.ing.filter(i => !m.pantry.has(norm(i.name)));
+
 export interface Filters { q: string; type: string; cat: string; maxTime: number; can: boolean; todo: boolean; arch: boolean }
 
 export function filterRecipes(m: Model, f: Filters): Recipe[] {

@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { ingState, sumQty, type IngState, type Model, type Recipe } from "../model";
+import { DZIALY, ingState, norm, parseIng, similarIngredients, splitIng, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { openRecipe, randomMode } from "../state/ui";
 import { MissBadge } from "./common";
@@ -28,12 +28,73 @@ const lines = (s: string) => s.split(/\r?\n/).map(x => x.trim()).filter(Boolean)
 const rowsFor = (s: string, min: number) => Math.max(min, s.split("\n").length + 1);
 const ingText = (r: Recipe) => r.ing.map(i => (i.qty ? `${i.name}: ${i.qty.raw}` : i.name)).join("\n");
 
+/** Names in the ingredient field that aren't in the pantry: swap one for a close pantry name or add it as a new product. */
+function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setText: (s: string) => void }) {
+  const act = useAct();
+  const [fresh, setFresh] = useState<string[]>([]); // marked "To nowy składnik", so no more suggestion
+  const [dzial, setDzial] = useState<Record<string, string>>({});
+  const all = splitIng(lines(text).join("; ")).map(i => parseIng(i).name);
+  const names = [...new Map(all.map(n => [norm(n), n])).values()].filter(n => !m.pantry.has(norm(n)));
+  if (!names.length) return null;
+
+  // keeps the amount and the separators around the name as they were
+  const swap = (from: string, to: string) => setText(text.split("\n").map(l => l.split(";").map(part => {
+    if (norm(parseIng(part).name) !== norm(from)) return part;
+    const c = part.lastIndexOf(":");
+    return part.match(/^\s*/)![0] + to + (c < 0 ? "" : part.slice(c));
+  }).join(";")).join("\n"));
+  const add = (n: string) => {
+    act({ action: "addPantry", name: n, dzial: dzial[norm(n)] ?? "Inne", have: false });
+    toast(`Dodano do bazy: ${n}`);
+  };
+
+  return (
+    <div class="mt-2.5 grid gap-2">
+      <p class="text-[.85rem] text-muted">Tych nazw nie ma w spiżarni. Zamień na istniejącą albo dodaj jako nowy składnik.</p>
+      {names.map(n => {
+        const isNew = fresh.includes(norm(n));
+        const s = isNew ? null : suggestIngredient(n, m.pantry);
+        const similar = isNew || s ? [] : similarIngredients(n, m.pantry);
+        return (
+          <div key={norm(n)} class="grid gap-2 rounded-[10px] border border-paprika-soft bg-surface px-3 py-2.5">
+            <span class="font-bold text-paprika">{n}</span>
+            {s
+              ? <>
+                <span>Czy chodziło o „{s}”?</span>
+                <div class="row">
+                  <button class="btn primary" onClick={() => swap(n, s)}>Zamień na „{s}”</button>
+                  <button class="btn ghost" onClick={() => setFresh([...fresh, norm(n)])}>To nowy składnik</button>
+                </div>
+              </>
+              : <>
+                {similar.length > 0 && <>
+                  <span>Podobne w bazie:</span>
+                  <div class="row">
+                    {similar.map(x => <button key={x} class="btn ghost" onClick={() => swap(n, x)}>Zamień na „{x}”</button>)}
+                  </div>
+                  <span class="text-[.85rem] text-muted">Albo dodaj jako nowy składnik:</span>
+                </>}
+                <div class="row">
+                  <select class="field" aria-label={`Dział: ${n}`} value={dzial[norm(n)] ?? "Inne"} onChange={e => setDzial({ ...dzial, [norm(n)]: e.currentTarget.value })}>
+                    {DZIALY.map(d => <option key={d}>{d}</option>)}
+                  </select>
+                  <button class="btn primary" onClick={() => add(n)}>Dodaj do bazy</button>
+                </div>
+              </>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Edits the description, steps (one per line) and ingredients (one per line, "name: amount"). */
-function RecipeEditor({ r, done }: { r: Recipe; done: () => void }) {
+function RecipeEditor({ m, r, done }: { m: Model; r: Recipe; done: () => void }) {
   const act = useAct();
   const [desc, setDesc] = useState(r.desc);
   const [steps, setSteps] = useState(r.steps.join("\n"));
   const [ing, setIng] = useState(ingText(r));
+  const [next, setNext] = useState(""); // "add ingredient" box with pantry names as suggestions
   const save = () => {
     const newIng = lines(ing).join("; ");
     act({
@@ -55,6 +116,13 @@ function RecipeEditor({ r, done }: { r: Recipe; done: () => void }) {
         <h3><label for="ed-ing">Składniki</label></h3>
         <p class="text-[.85rem] text-muted">Jeden w linii, ilość po dwukropku, np. „makaron: 200 g”.</p>
         <textarea id="ed-ing" class={FIELD_CLS} rows={rowsFor(ing, 5)} value={ing} onInput={e => setIng(e.currentTarget.value)} />
+        <form class="row mt-2" onSubmit={e => { e.preventDefault(); if (next.trim()) { setIng([...lines(ing), next.trim()].join("\n")); setNext(""); } }}>
+          <input class="field flex-1" list="pantry-names" aria-label="Nowy składnik" placeholder="np. masło: 50 g" autocomplete="off"
+            value={next} onInput={e => setNext(e.currentTarget.value)} />
+          <button class="btn ghost" type="submit">Dodaj</button>
+        </form>
+        <datalist id="pantry-names">{[...m.pantry.values()].map(p => <option key={p.name} value={p.name} />)}</datalist>
+        <UnknownIngredients m={m} text={ing} setText={setIng} />
       </div>
       <div class="section">
         <h3><label for="ed-steps">Kroki</label></h3>
@@ -87,7 +155,7 @@ export function RecipeSheet() {
           <button class="btn ghost" onClick={() => setEditing(null)}>‹ Wróć</button>
         </div>
         <h2>{r.name}</h2>
-        <RecipeEditor key={r.id} r={r} done={() => setEditing(null)} />
+        <RecipeEditor key={r.id} m={m} r={r} done={() => setEditing(null)} />
       </div>
     );
   }
@@ -126,7 +194,10 @@ export function RecipeSheet() {
             <button key={i.name} class="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
               onClick={() => act({ action: "setPantry", name: i.name, have: st === "miss" })}>
               <span class={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
-              <span class="min-w-0 flex-1">{i.name}{st === "always" && <span class="block text-[.75rem] text-muted">zawsze mam</span>}</span>
+              <span class="min-w-0 flex-1">{i.name}
+                {st === "always" && <span class="block text-[.75rem] text-muted">zawsze mam</span>}
+                {!m.pantry.has(norm(i.name)) && <span class="block text-[.75rem] text-paprika">poza bazą, popraw w „Edytuj”</span>}
+              </span>
               {i.qty && <span class="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
             </button>
           ))

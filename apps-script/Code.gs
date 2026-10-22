@@ -160,8 +160,9 @@ const ACTIONS = {
   addPantry(p) {
     const s = sheet_(TABS.pantry);
     const row = findRow_(s, 1, p.name);
-    if (row) s.getRange(row, 3).setValue(true);
-    else s.getRange(nextRow_(s, 1), 1, 1, 4).setValues([[String(p.name).trim(), String(p.dzial || "Inne"), true, false]]);
+    const have = p.have !== false; // a new product added from a recipe goes in as "nie mam"
+    if (row) { if (have) s.getRange(row, 3).setValue(true); }
+    else s.getRange(nextRow_(s, 1), 1, 1, 4).setValues([[String(p.name).trim(), String(p.dzial || "Inne"), have, false]]);
   },
 
   removePantry(p) {

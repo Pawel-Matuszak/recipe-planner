@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildModel, filterRecipes, missingOf, parseDate, parseIng, plural, randomPool, shoppingItems, sumQty, type Filters, type Tables } from "./model";
+import { buildModel, filterRecipes, missingOf, parseDate, parseIng, plural, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
 
 const MAIN_HEADER = ["Obrazek", "Nazwa", "Typ", "Trudność", "Było robione?", "Link", "Kategoria 1", "Kateogria 2", "Archived", "ID", "Czas (min)", "Składniki", "Składniki sprawdzone", "Ocena", "Notatki", "Opis", "Przepis"];
 const recipe = (id: string, name: string, ing: string, extra: Partial<Record<string, string>> = {}) => {
@@ -189,5 +189,59 @@ describe("dates and words", () => {
   it("polish plurals", () => {
     expect([1, 2, 5, 12, 22, 25].map(n => plural(n, "przepis", "przepisy", "przepisów")))
       .toEqual(["przepis", "przepisy", "przepisów", "przepisów", "przepisy", "przepisów"]);
+  });
+});
+
+describe("matching ingredients to the pantry", () => {
+  const pantry = buildModel({ main: [MAIN_HEADER], plan: [], extra: [], pantry: [
+    ["Składnik", "Dział", "Mam", "Zawsze mam"],
+    ...["masło orzechowe", "masło", "twaróg", "pomidory", "bazylia", "ser żółty", "serek wiejski", "jogurt grecki", "olej", "makaron", "makaron udon"]
+      .map(n => [n, "Inne", "FALSE", "FALSE"]),
+  ] }).pantry;
+  const s = (n: string) => suggestIngredient(n, pantry);
+
+  it("gives nothing for names already in the pantry", () => {
+    expect(s("Masło orzechowe")).toBeNull();
+    expect(s(" jogurt grecki ")).toBeNull();
+  });
+
+  it("finds the same words in another order or without Polish letters", () => {
+    expect(s("orzechowe masło")).toBe("masło orzechowe");
+    expect(s("maslo orzechowe")).toBe("masło orzechowe");
+    expect(s("twarog")).toBe("twaróg");
+  });
+
+  it("finds typos in longer names only", () => {
+    expect(s("pomidor")).toBe("pomidory");
+    expect(s("makron")).toBe("makaron");
+    expect(s("olei")).toBeNull();
+  });
+
+  it("leaves one name containing the other to the similar list", () => {
+    expect(s("świeża bazylia")).toBeNull();
+    expect(similarIngredients("świeża bazylia", pantry)).toEqual(["bazylia"]);
+    expect(similarIngredients("makaron udon świeży", pantry)).toEqual(["makaron udon", "makaron"]);
+  });
+
+  it("doesn't match different products", () => {
+    expect(s("jogurt naturalny")).toBeNull();
+    expect(s("serek kremowy")).toBeNull();
+    expect(s("pinsa")).toBeNull();
+  });
+
+  it("lists pantry names sharing a word as similar, first word first", () => {
+    expect(similarIngredients("jogurt naturalny", pantry)).toEqual(["jogurt grecki"]);
+    const withJogurt = new Map(pantry).set("jogurt", { name: "jogurt", dzial: "Inne", have: false, always: false });
+    expect(suggestIngredient("jogurt naturalny", withJogurt)).toBeNull();
+    expect(similarIngredients("jogurt naturalny", withJogurt)).toEqual(["jogurt", "jogurt grecki"]);
+    expect(similarIngredients("makaron ryżowy", pantry)).toEqual(["makaron", "makaron udon"]);
+    expect(similarIngredients("żółty ser cheddar", pantry)).toEqual(["ser żółty"]);
+    expect(similarIngredients("pinsa", pantry)).toEqual([]);
+    expect(similarIngredients("jogurt grecki", pantry)).toEqual([]);
+  });
+
+  it("lists recipe ingredients that aren't in the pantry", () => {
+    const m = buildModel(tables());
+    expect(unknownOf(m, m.recipes.find(r => r.id === "r002")!).map(i => i.name)).toEqual(["kiełbasa", "cukinia", "papryka"]);
   });
 });
