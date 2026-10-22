@@ -19,14 +19,17 @@ iPhone (PWA, Next.js) ──fetch + token──▶ Apps Script web app ──▶
 
 > Migration in progress (branch `db-migration`): moving to Next.js on Vercel with Neon Postgres, Prisma and Better Auth.
 > Phase 1 (done): the app runs on Next.js + React. It still talks to Apps Script.
+> Phase 2 (done): Postgres schema and migrations (Prisma), demo seed, database tests. Not used by the app yet.
 
 - `src/`: frontend (Next.js App Router + React + TypeScript, TanStack Query, Tailwind CSS, Serwist for the PWA).
   - `app/`: Next.js entry: layout, the single client page, web manifest and service worker (`sw.ts`, served by `serwist/[path]/route.ts`).
   - `model.ts`: pure functions (missing ingredients, filters, shopping list). The whole sheet is loaded once and filtered on the phone.
   - `actions.ts`: writes applied locally (optimistically) and in demo mode.
   - `data/`: Apps Script client (`backend.ts`) and TanStack Query (`queryClient.ts`, `sheet.ts`). Data and unsent changes are saved to `localStorage` by the persister, so the app works offline and changes are sent in order once the connection is back.
-  - `state/`: UI state (Preact signals): current tab, filters, open recipe.
-  - `components/`: Preact views.
+  - `state/`: UI state (Preact signals via `@preact/signals-react`): current tab, filters, open recipe.
+  - `components/`: React views.
+  - `server/`: backend code (server only). `db.ts` is the Prisma client; `import/fromModel.ts` loads sheet-shaped data into the database (demo seed, and later the one-off sheet import).
+- `prisma/`: `schema.prisma` (tables), `migrations/` (committed SQL), `seed.ts` (demo data).
 - `apps-script/Code.gs`: backend bound to the spreadsheet. `GET ?action=all` returns the whole sheet, and `POST` accepts the actions from `src/actions.ts`.
 - Spreadsheet: tabs `Main` (recipes, columns are matched by header, e.g. `Opis` for the description and `Przepis` for the steps, one per line; `Poza bazą` is a formula listing ingredients missing from `Spiżarnia`, and those rows are highlighted red), `Spiżarnia` (pantry), `Plan2` and `Zakupy_extra` (extra shopping items).
 
@@ -68,10 +71,35 @@ npm run icons      # generate PWA icons into public/icons
 Local database (needs Docker Desktop running): `cp .env.example .env.local`, then
 
 ```bash
-npm run db:up      # Postgres 17 on localhost:54322, databases `obiadki` (dev) and `obiadki_test` (tests)
+npm run db:up      # Postgres 18 on localhost:54322, databases `obiadki` (dev) and `obiadki_test` (tests)
 npm run db:down    # stop it (data is kept in a Docker volume)
 npm run db:reset   # stop and wipe all local data
+npm run db:migrate # after editing schema.prisma: create a migration and apply it to the local dev database
+npm run db:seed    # replace the local dev database's contents with the demo data
+npm run test:db    # database tests only (always on the local `obiadki_test` database)
+npm run db:deploy  # apply committed migrations to the database in .env.local DIRECT_URL (Neon dev branch)
 ```
+
+Environment (`.env.local`, see `.env.example`):
+- `DATABASE_URL`: what the app uses at runtime; on Neon the **pooled** connection string (host contains `-pooler`).
+- `DIRECT_URL`: used by migrations; on Neon the **unpooled** connection string.
+- `TEST_DATABASE_URL`: the local test database; the db tests refuse to run against anything that isn't local.
+
+The seed also refuses to run against a non-local database unless `SEED_ALLOW_REMOTE=1` (it wipes the database first).
+
+### Database
+
+Postgres 18 (Neon in the cloud: `production` branch = prod, `dev` branch = dev; Docker locally). Main tables:
+
+| Area | Tables |
+|---|---|
+| Identity (Better Auth) | `user` (with `role`: user/admin), `session`, `account`, `verification` |
+| Households | `household`, `household_member`, `household_invite` |
+| Catalog (global, edited by admins) | `recipe`, `recipe_ingredient`, `recipe_step`, `recipe_link`, `recipe_category`, `ingredient`, `department`, `recipe_type`, `category` |
+| Kitchen (per household) | `pantry_item`, `plan_entry`, `shopping_extra`, `household_recipe_state` (done, rating, notes) |
+
+Glossary (UI → code): Spiżarnia → pantry · Dział → department · Mam → have · Zawsze mam → always · Do ugotowania → plan ·
+Zakupy extra → shopping extra · Było robione → done · Ocena → rating · Notatki → notes · Typ → recipe type · Kategoria → category.
 
 CI (`.github/workflows/ci.yml`) runs the typecheck, tests and build on every PR and push to `main`.
 Deploys will go through Vercel's Git integration (set up in a later migration phase).
