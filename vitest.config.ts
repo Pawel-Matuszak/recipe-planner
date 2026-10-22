@@ -11,14 +11,14 @@ export default defineConfig({
   plugins: [react()],
   test: {
     projects: [
-      { extends: true, test: { name: "unit", environment: "node", include: ["src/**/*.test.{ts,tsx}"], exclude: ["src/server/**"] } },
+      { extends: true, test: { name: "unit", environment: "node", include: ["src/**/*.test.{ts,tsx}"], exclude: ["src/**/*.db.test.ts"] } },
       {
         extends: true,
         test: {
           name: "db",
           environment: "node",
-          include: ["src/server/**/*.test.ts"],
-          env: { DATABASE_URL: testDb, DIRECT_URL: testDb },
+          include: ["src/**/*.db.test.ts"],
+          env: { DATABASE_URL: testDb, DIRECT_URL: testDb, BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret", BETTER_AUTH_URL: "http://localhost:3000" },
           globalSetup: ["src/server/test/globalSetup.ts"],
           fileParallelism: false, // test files share one database
         },

@@ -20,6 +20,7 @@ iPhone (PWA, Next.js) ──fetch + token──▶ Apps Script web app ──▶
 > Migration in progress (branch `db-migration`): moving to Next.js on Vercel with Neon Postgres, Prisma and Better Auth.
 > Phase 1 (done): the app runs on Next.js + React. It still talks to Apps Script.
 > Phase 2 (done): Postgres schema and migrations (Prisma), demo seed, database tests. Not used by the app yet.
+> Phase 3 (done): accounts (email + password) and households in Settings → Konto. Recipes still come from the sheet.
 
 - `src/`: frontend (Next.js App Router + React + TypeScript, TanStack Query, Tailwind CSS, Serwist for the PWA).
   - `app/`: Next.js entry: layout, the single client page, web manifest and service worker (`sw.ts`, served by `serwist/[path]/route.ts`).
@@ -28,7 +29,12 @@ iPhone (PWA, Next.js) ──fetch + token──▶ Apps Script web app ──▶
   - `data/`: Apps Script client (`backend.ts`) and TanStack Query (`queryClient.ts`, `sheet.ts`). Data and unsent changes are saved to `localStorage` by the persister, so the app works offline and changes are sent in order once the connection is back.
   - `state/`: UI state (Preact signals via `@preact/signals-react`): current tab, filters, open recipe.
   - `components/`: React views.
-  - `server/`: backend code (server only). `db.ts` is the Prisma client; `import/fromModel.ts` loads sheet-shaped data into the database (demo seed, and later the one-off sheet import).
+  - `server/`: backend code (server only), one folder per area:
+    - `db.ts`: Prisma client. `http.ts`: session check, JSON body validation (zod) and error responses for route handlers. `errors.ts`: expected failures with a Polish message.
+    - `identity/auth.ts`: Better Auth (email + password, 60-day sessions, `user`/`admin` roles).
+    - `households/`: `rules.ts` (pure rules: who becomes owner, invite codes) and `service.ts` (create, invite, join, leave).
+    - `import/fromModel.ts`: loads sheet-shaped data into the database (demo seed, and later the one-off sheet import).
+  - `app/api/`: route handlers: `auth/[...all]` (Better Auth) and `household` (GET your household, POST `{ op: "create" | "invite" | "join" | "leave" }`).
 - `prisma/`: `schema.prisma` (tables), `migrations/` (committed SQL), `seed.ts` (demo data).
 - `apps-script/Code.gs`: backend bound to the spreadsheet. `GET ?action=all` returns the whole sheet, and `POST` accepts the actions from `src/actions.ts`.
 - Spreadsheet: tabs `Main` (recipes, columns are matched by header, e.g. `Opis` for the description and `Przepis` for the steps, one per line; `Poza bazą` is a formula listing ingredients missing from `Spiżarnia`, and those rows are highlighted red), `Spiżarnia` (pantry), `Plan2` and `Zakupy_extra` (extra shopping items).
@@ -78,12 +84,17 @@ npm run db:migrate # after editing schema.prisma: create a migration and apply i
 npm run db:seed    # replace the local dev database's contents with the demo data
 npm run test:db    # database tests only (always on the local `obiadki_test` database)
 npm run db:deploy  # apply committed migrations to the database in .env.local DIRECT_URL (Neon dev branch)
+npx tsx scripts/set-role.ts you@example.com admin   # make a signed-up user an admin (database from DATABASE_URL)
 ```
+
+Tests: `*.db.test.ts` files run against the local test database (`npm run test:db`), everything else is a plain unit test (`npm run test:unit`).
 
 Environment (`.env.local`, see `.env.example`):
 - `DATABASE_URL`: what the app uses at runtime; on Neon the **pooled** connection string (host contains `-pooler`).
 - `DIRECT_URL`: used by migrations; on Neon the **unpooled** connection string.
 - `TEST_DATABASE_URL`: the local test database; the db tests refuse to run against anything that isn't local.
+- `BETTER_AUTH_SECRET`: random secret that signs session cookies (32+ characters, different per environment).
+- `BETTER_AUTH_URL`: the app's public URL (`http://localhost:3000` locally).
 
 The seed also refuses to run against a non-local database unless `SEED_ALLOW_REMOTE=1` (it wipes the database first).
 
@@ -94,7 +105,7 @@ Postgres 18 (Neon in the cloud: `production` branch = prod, `dev` branch = dev; 
 | Area | Tables |
 |---|---|
 | Identity (Better Auth) | `user` (with `role`: user/admin), `session`, `account`, `verification` |
-| Households | `household`, `household_member`, `household_invite` |
+| Households | `household`, `household_member` (one household per user), `household_invite` (8-character code, valid 7 days) |
 | Catalog (global, edited by admins) | `recipe`, `recipe_ingredient`, `recipe_step`, `recipe_link`, `recipe_category`, `ingredient`, `department`, `recipe_type`, `category` |
 | Kitchen (per household) | `pantry_item`, `plan_entry`, `shopping_extra`, `household_recipe_state` (done, rating, notes) |
 

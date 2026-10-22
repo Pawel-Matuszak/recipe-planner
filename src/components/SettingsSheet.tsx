@@ -6,6 +6,7 @@ import { config, DEMO_URL } from "../data/backend";
 import { connect, connectDemo, forget, useSyncStatus } from "../data/sheet";
 import { toast } from "../state/toast";
 import { settingsOpen } from "../state/ui";
+import { AccountSection } from "./AccountSection";
 
 export function SettingsSheet() {
   useSignals();
@@ -37,6 +38,8 @@ export function SettingsSheet() {
         {!first && <button className="btn ghost" onClick={() => (settingsOpen.value = false)}>‹ Wróć</button>}
       </div>
       <h2>{first ? "Połącz z arkuszem" : "Ustawienia"}</h2>
+      {/* migration: accounts exist already; recipes still come from the sheet until the app switches to the database */}
+      <AccountSection />
       <p className="mt-2 mb-4 max-w-[60ch] text-muted">Apka czyta i zapisuje Twój arkusz „Obiadki2” przez skrypt Apps Script. Adres i token dostaniesz po wdrożeniu skryptu (instrukcja w README repozytorium).</p>
       <form className="panel" onSubmit={submit}>
         <label className="text-[.85rem] font-bold" htmlFor="cfgUrl">Adres wdrożenia (kończy się na /exec)</label>

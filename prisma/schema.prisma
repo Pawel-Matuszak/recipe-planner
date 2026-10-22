@@ -29,7 +29,7 @@ model User {
 
   sessions       Session[]
   accounts       Account[]
-  memberships    HouseholdMember[]
+  membership     HouseholdMember? // a user is in at most one household
   invitesCreated HouseholdInvite[]
   recipesCreated Recipe[]
 
@@ -112,14 +112,13 @@ model Household {
 
 model HouseholdMember {
   householdId String     @map("household_id") @db.Uuid
-  userId      String     @map("user_id")
+  userId      String     @unique @map("user_id")
   role        MemberRole @default(member)
   joinedAt    DateTime   @default(now()) @map("joined_at")
   household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([householdId, userId])
-  @@index([userId])
   @@map("household_member")
 }
 
