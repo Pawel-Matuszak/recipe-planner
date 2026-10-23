@@ -19,7 +19,7 @@ iPhone (PWA) ──cookie session──▶ Next.js route handlers (/api/*) ─�
 ```
 
 > Migration in progress (branch `db-migration`), from Google Sheets + Apps Script + GitHub Pages:
-> phases 1–4 done (Next.js, database, accounts and households, the app on the database).
+> phases 1–4 done (Next.js, database, accounts and households, the app on the database); phase 5 (sheet import) in progress.
 > Next: importing the real spreadsheet, admin recipe editor, deploying on Vercel.
 
 - `src/`: Next.js App Router + React + TypeScript, TanStack Query, Tailwind CSS, Serwist for the PWA.
@@ -39,7 +39,7 @@ iPhone (PWA) ──cookie session──▶ Next.js route handlers (/api/*) ─�
     - `households/`: `rules.ts` (pure rules: who becomes owner, invite codes) and `service.ts` (create, invite, join, leave).
     - `catalog/`: shared products (`ingredients.ts`) and recipe editing (`recipes.ts`); admin-only parts are checked in `kitchen/actions.ts`.
     - `kitchen/`: the household's data: `state.ts` (read side, GET /api/state) and `actions.ts` (write side, POST /api/actions).
-    - `import/fromModel.ts`: loads sheet-shaped data into the database (demo seed, and the one-off sheet import).
+    - `import/`: `fromModel.ts` loads sheet-shaped data into the database (demo seed and sheet import); `report.ts` lists what to fix in the sheet; `sheet.ts` replaces the catalog with the sheet and checks the result.
 - `prisma/`: `schema.prisma` (tables), `migrations/` (committed SQL), `seed.ts` (demo data and a demo admin).
 - `apps-script/Code.gs`: the old backend bound to the "Obiadki2" spreadsheet; kept until the one-off import of the real data is done.
 
@@ -97,6 +97,20 @@ Postgres 18 (Neon in the cloud: `production` branch = prod, `dev` branch = dev; 
 
 Glossary (UI → code): Spiżarnia → pantry · Dział → department · Mam → have · Zawsze mam → always · Do ugotowania → plan ·
 Zakupy extra → shopping extra · Było robione → done · Ocena → rating · Notatki → notes · Typ → recipe type · Kategoria → category.
+
+### Importing the spreadsheet
+
+`npm run db:import` reads the sheet through the Apps Script web app (`SHEET_URL`, `SHEET_TOKEN` in `.env.local`) or a saved export (`-- --file export.json`; `-- --save export.json` keeps one).
+Without flags it only prints a report: duplicate IDs (errors), likely typos, products missing from the pantry, values the database can't keep.
+
+```sh
+npm run db:import                                                    # report only
+npm run db:import -- --owner you@example.com --apply --host <db host>  # replace recipes/products, load your kitchen
+```
+
+The owner must have an account in that database. Their household (created if needed) gets the pantry, plan and extras; accounts and members stay.
+It refuses if another household already has data, and needs `--host` for anything but localhost. Afterwards it compares the app's view with the sheet,
+including the shopping list for the current plan. Running it again replaces the same data.
 
 CI (`.github/workflows/ci.yml`) runs the typecheck, tests and build on every PR and push to `main`.
 Deploys will go through Vercel's Git integration (set up in a later migration phase).

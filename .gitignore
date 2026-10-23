@@ -7,3 +7,6 @@ next-env.d.ts
 *.log
 .playwright-mcp
 /src/generated
+
+# spreadsheet exports from `npm run db:import -- --save …` (household data)
+*export*.json

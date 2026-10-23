@@ -22,7 +22,8 @@
     "db:migrate": "cross-env DIRECT_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki DATABASE_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki prisma migrate dev",
     "db:seed": "cross-env DIRECT_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki DATABASE_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki prisma db seed",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:import": "tsx scripts/import-sheet.ts"
   },
   "devDependencies": {
     "@serwist/turbopack": "9.5.13",
