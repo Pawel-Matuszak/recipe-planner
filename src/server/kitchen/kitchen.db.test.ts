@@ -93,6 +93,47 @@ describe("POST /api/actions", () => {
     expect(canonical(await getState())).toEqual(canonical(expected));
   });
 
+  it("admin catalog changes end in the same state as the phone's optimistic update", async () => {
+    await db.user.update({ where: { email: "ania@example.com" }, data: { role: "admin" } });
+    const before = await getState();
+    const leczo = recipeId(before, "Leczo");
+    const fresh = uid();
+    const actions: Action[] = [
+      {
+        action: "createRecipe", recipeId: fresh, name: "Kasza z warzywami", type: "Obiad jednogarnkowy", diff: "Łatwy", time: 25,
+        cats: ["Warzywa", "Nowe"], links: ["https://example.com/kasza"], desc: "Szybki obiad.", steps: "Ugotuj kaszę\nDodaj warzywa",
+        ing: "kasza bulgur: 200 g; Cukinia: 1; papryka", arch: false,
+      },
+      { action: "createRecipe", recipeId: fresh, name: "Powtórka", type: "Deser", diff: "", time: 0, cats: [], links: [], desc: "", steps: "", ing: "", arch: false }, // retried: ignored
+      { action: "addPlan", uid: uid(), date: "2030-01-01", meal: "", id: fresh, text: "" },
+      { action: "setRecipeField", recipeId: fresh, field: "rate", value: 5 },
+      { action: "editRecipe", recipeId: leczo, name: "Leczo z cukinią", diff: "Średni", time: 45, cats: ["Mięso"], links: [], arch: true },
+      { action: "editRecipe", recipeId: fresh, steps: "Jeden krok" },
+      { action: "editIngredient", name: "kasza bulgur", newName: "Kasza bulgur", dzial: "Makaron, ryż, kasze" },
+      { action: "editIngredient", name: "pomidory", dzial: "Puszki i słoiki" },
+      { action: "setPantry", name: "papryka", have: true },
+      { action: "mergeIngredients", from: "papryka", into: "cukinia" },
+      { action: "mergeIngredients", from: "papryka", into: "cukinia" }, // retried: nothing left to merge
+    ];
+    const expected = cloneState(before);
+    for (const a of actions) {
+      applyAction(expected, a);
+      const r = await send(a);
+      expect(r.status, `${a.action}: ${JSON.stringify(r.json)}`).toBe(200);
+    }
+    const after = await getState();
+    expect(canonical(after)).toEqual(canonical(expected));
+    expect(after.recipes.find(r => r.id === fresh)).toMatchObject({ name: "Kasza z warzywami", rate: 5, ver: true, steps: ["Jeden krok"] });
+    expect(after.plan.some(p => p.id === fresh)).toBe(true);
+  });
+
+  it("refuses renaming a product to a name another product has", async () => {
+    await db.user.update({ where: { email: "ania@example.com" }, data: { role: "admin" } });
+    const r = await send({ action: "editIngredient", name: "cebula", newName: "Czosnek" });
+    expect(r.status).toBe(409);
+    expect(r.json.message).toContain("Połącz");
+  });
+
   it("lets only admins edit recipes and delete products", async () => {
     const s = await getState();
     const edit = { action: "editRecipe", recipeId: recipeId(s, "Leczo"), steps: "Jeden krok", ing: "Cukinia: 2; kiełbasa: 300 g; nowość" };

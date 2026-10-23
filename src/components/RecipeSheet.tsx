@@ -1,12 +1,12 @@
 import { useSignals } from "@preact/signals-react/runtime";
 import { useState } from "react";
-import type { Action } from "../actions";
+import { DIFFICULTIES, type Action } from "../actions";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { DZIALY, ingState, isAdmin, norm, parseIng, similarIngredients, splitIng, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
+import { DZIALY, ingState, isAdmin, newId, norm, parseIng, similarIngredients, splitIng, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
-import { openRecipe, randomMode } from "../state/ui";
+import { newRecipe, openRecipe, randomMode } from "../state/ui";
 import { MissBadge } from "./common";
 import { useQueueAdd } from "./PlanView";
 
@@ -92,27 +92,82 @@ function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setT
   );
 }
 
-/** Edits the description, steps (one per line) and ingredients (one per line, "name: amount"). */
-function RecipeEditor({ m, r, done }: { m: Model; r: Recipe; done: () => void }) {
+const BLANK: Recipe = { id: "", name: "", type: "Danie główne", diff: "", done: false, arch: false, links: [], cats: [], time: 0, ing: [], ver: false, rate: 0, notes: "", desc: "", steps: [] };
+const commaList = (s: string) => [...new Set(s.split(",").map(x => x.trim()).filter(Boolean))];
+type Difficulty = Extract<Action, { action: "createRecipe" }>["diff"];
+
+/** Admin form for a recipe: everything but the household's own done / rating / notes. Without `r` it creates a new one. */
+export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?: string) => void }) {
   useSignals();
   const act = useAct();
-  const [desc, setDesc] = useState(r.desc);
-  const [steps, setSteps] = useState(r.steps.join("\n"));
-  const [ing, setIng] = useState(ingText(r));
+  const base = r ?? BLANK;
+  const [name, setName] = useState(base.name);
+  const [type, setType] = useState(base.type);
+  const [diff, setDiff] = useState(base.diff);
+  const [time, setTime] = useState(base.time ? String(base.time) : "");
+  const [cats, setCats] = useState(base.cats.join(", "));
+  const [links, setLinks] = useState(base.links.join("\n"));
+  const [arch, setArch] = useState(base.arch);
+  const [desc, setDesc] = useState(base.desc);
+  const [steps, setSteps] = useState(base.steps.join("\n"));
+  const [ing, setIng] = useState(ingText(base));
   const [next, setNext] = useState(""); // "add ingredient" box with pantry names as suggestions
+  const types = [...new Set([...m.recipes.map(x => x.type), "Danie główne"])].sort((a, b) => a.localeCompare(b, "pl"));
+  const allCats = [...new Set(m.recipes.flatMap(x => x.cats))].sort((a, b) => a.localeCompare(b, "pl"));
+
   const save = () => {
+    if (!name.trim()) return toast("Podaj nazwę przepisu");
+    if (!type.trim()) return toast("Podaj typ, np. Danie główne");
     const newIng = lines(ing).join("; ");
-    act({
-      action: "editRecipe", recipeId: r.id, desc: desc.trim(), steps: lines(steps).join("\n"),
-      // only resend ingredients when they changed, so fixing a step doesn't mark them as checked
-      ...(newIng !== lines(ingText(r)).join("; ") && { ing: newIng }),
-    });
+    const data = {
+      name: name.trim(), type: type.trim(), diff: diff as Difficulty, time: Math.max(0, parseInt(time, 10) || 0),
+      cats: commaList(cats), links: lines(links), arch, desc: desc.trim(), steps: lines(steps).join("\n"),
+    };
+    if (!r) {
+      const id = newId();
+      act({ action: "createRecipe", recipeId: id, ...data, ing: newIng });
+      toast("Przepis dodany");
+      return done(id);
+    }
+    // only resend ingredients when they changed, so fixing a step doesn't mark them as checked
+    act({ action: "editRecipe", recipeId: r.id, ...data, ...(newIng !== lines(ingText(r)).join("; ") && { ing: newIng }) });
     toast("Przepis zapisany");
-    done();
+    done(r.id);
   };
 
   return (
     <>
+      <div className="section">
+        <h3><label htmlFor="ed-name">Nazwa</label></h3>
+        <input id="ed-name" className="field" value={name} onChange={e => setName(e.currentTarget.value)} autoComplete="off" />
+      </div>
+      <div className="section">
+        <div className="row items-end">
+          <label className="grid min-w-[140px] flex-1 gap-1 font-bold">Typ
+            <input className="field" list="recipe-types" value={type} onChange={e => setType(e.currentTarget.value)} autoComplete="off" />
+          </label>
+          <label className="grid min-w-[120px] flex-1 gap-1 font-bold">Trudność
+            <select className="field" value={diff} onChange={e => setDiff(e.currentTarget.value)}>
+              <option value="">nie podano</option>
+              {DIFFICULTIES.map(d => <option key={d}>{d}</option>)}
+            </select>
+          </label>
+          <label className="grid w-28 gap-1 font-bold">Czas (min)
+            <input className="field" type="number" inputMode="numeric" min={0} value={time} onChange={e => setTime(e.currentTarget.value)} />
+          </label>
+        </div>
+        <datalist id="recipe-types">{types.map(t => <option key={t} value={t} />)}</datalist>
+      </div>
+      <div className="section">
+        <h3><label htmlFor="ed-cats">Kategorie</label></h3>
+        <p className="text-[.85rem] text-muted">Po przecinku, np. „Makaron, Wegetariańskie”.{allCats.length ? ` Istniejące: ${allCats.join(", ")}.` : ""}</p>
+        <input id="ed-cats" className="field" value={cats} onChange={e => setCats(e.currentTarget.value)} autoComplete="off" />
+      </div>
+      <div className="section">
+        <h3><label htmlFor="ed-links">Linki</label></h3>
+        <p className="text-[.85rem] text-muted">Jeden w linii.</p>
+        <textarea id="ed-links" className={FIELD_CLS} rows={rowsFor(links, 2)} value={links} onChange={e => setLinks(e.currentTarget.value)} />
+      </div>
       <div className="section">
         <h3><label htmlFor="ed-desc">Opis</label></h3>
         <textarea id="ed-desc" className={FIELD_CLS} rows={rowsFor(desc, 3)} value={desc} onChange={e => setDesc(e.currentTarget.value)} />
@@ -134,11 +189,32 @@ function RecipeEditor({ m, r, done }: { m: Model; r: Recipe; done: () => void })
         <p className="text-[.85rem] text-muted">Jeden krok w linii.</p>
         <textarea id="ed-steps" className={FIELD_CLS} rows={rowsFor(steps, 6)} value={steps} onChange={e => setSteps(e.currentTarget.value)} />
       </div>
+      <label className="mt-[18px] flex items-center gap-2.5 font-bold">
+        <input type="checkbox" className="size-[22px] flex-none accent-basil" checked={arch} onChange={e => setArch(e.currentTarget.checked)} />
+        <span>W archiwum <span className="block text-[.8rem] font-normal text-muted">ukryty na liście, chyba że w filtrach włączysz archiwum</span></span>
+      </label>
       <div className="row mt-[18px]">
-        <button className="btn primary" onClick={save}>Zapisz</button>
-        <button className="btn ghost" onClick={done}>Anuluj</button>
+        <button className="btn primary" onClick={save}>{r ? "Zapisz" : "Dodaj przepis"}</button>
+        <button className="btn ghost" onClick={() => done(r?.id)}>Anuluj</button>
       </div>
     </>
+  );
+}
+
+/** Admin: the empty recipe form; saving opens the new recipe. */
+export function NewRecipeSheet() {
+  useSignals();
+  const m = useModel();
+  if (!m) return null;
+  const done = (id?: string) => { newRecipe.value = false; if (id) openRecipe.value = id; };
+  return (
+    <div className="wrap pt-3 pb-10">
+      <div className="sticky top-0 z-[2] flex min-h-14 items-center bg-bg py-2">
+        <button className="btn ghost" onClick={() => done()}>‹ Wróć</button>
+      </div>
+      <h2>Nowy przepis</h2>
+      <RecipeEditor m={m} done={done} />
+    </div>
   );
 }
 
@@ -182,6 +258,7 @@ export function RecipeSheet() {
         {r.time > 0 && <span className="badge b-unk">{r.time} min</span>}
         {r.diff && <span className="badge b-unk">{r.diff}</span>}
         {r.ing.length > 0 && !r.ver && <span className="badge b-warn">składniki do sprawdzenia</span>}
+        {r.arch && <span className="badge b-unk">w archiwum</span>}
       </div>
       {r.links.length > 0 && (
         <div className="row mt-2.5">

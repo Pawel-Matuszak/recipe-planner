@@ -103,6 +103,46 @@ describe("applyAction", () => {
   });
 });
 
+describe("admin catalog actions", () => {
+  const recipe = { name: "Kasza", type: "Danie główne", diff: "Łatwy" as const, time: 20, cats: ["Kasza", "Kasza", " "], links: [], desc: "", steps: "Ugotuj", ing: "Kasza bulgur: 200 g; cebula", arch: false };
+
+  it("creates a recipe under the phone's id, once", () => {
+    const s = demoState();
+    const id = uid();
+    applyAction(s, { action: "createRecipe", recipeId: id, ...recipe });
+    applyAction(s, { action: "createRecipe", recipeId: id, ...recipe, name: "Inna" });
+    const r = buildModel(s).recipes.filter(x => x.id === id);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ name: "Kasza", cats: ["Kasza"], ver: true, steps: ["Ugotuj"] });
+    expect(r[0].ing.map(i => i.name)).toEqual(["Kasza bulgur", "cebula"]);
+    expect(s.pantry.find(p => p.name === "Kasza bulgur")).toMatchObject({ dzial: "Inne", have: false });
+  });
+
+  it("edits any recipe field and leaves the rest", () => {
+    const s = demoState();
+    applyAction(s, { action: "editRecipe", recipeId: "r002", name: "Leczo z cukinią", arch: true, time: 0, diff: "" });
+    expect(s.recipes.find(r => r.id === "r002")).toMatchObject({ name: "Leczo z cukinią", arch: true, time: 0, diff: "", type: "Danie główne", ver: false });
+  });
+
+  it("renames a product everywhere, but not onto another product's name", () => {
+    const s = demoState();
+    applyAction(s, { action: "editIngredient", name: "boczek", newName: "Boczek wędzony", dzial: "Inne" });
+    expect(s.pantry.find(p => p.name === "Boczek wędzony")).toMatchObject({ dzial: "Inne" });
+    expect(s.recipes.find(r => r.id === "r001")!.ing.map(i => i.name)).toContain("Boczek wędzony");
+    applyAction(s, { action: "editIngredient", name: "cebula", newName: "Czosnek", dzial: "Inne" });
+    expect(s.pantry.find(p => p.name === "cebula")).toMatchObject({ dzial: "Warzywa i owoce" });
+  });
+
+  it("merges a product into another, keeping what the household had", () => {
+    const s = demoState();
+    applyAction(s, { action: "mergeIngredients", from: "cebula", into: "papryka" }); // cebula: mam
+    const m = buildModel(s);
+    expect(m.pantry.has("cebula")).toBe(false);
+    expect(m.pantry.get("papryka")).toMatchObject({ have: true });
+    expect(m.recipes.find(r => r.id === "r002")!.ing.filter(i => i.name === "papryka")).toHaveLength(2);
+  });
+});
+
 describe("ActionSchema", () => {
   it("accepts what the app sends and rejects malformed actions", () => {
     expect(ActionSchema.safeParse({ action: "setRecipeField", recipeId: "3", field: "rate", value: 5 }).success).toBe(true);

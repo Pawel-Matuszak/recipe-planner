@@ -40,3 +40,40 @@ export async function deleteIngredient(tx: Tx, name: string): Promise<void> {
   }
   await tx.ingredient.delete({ where: { id: ing.id } });
 }
+
+/** Renames a product or moves it to another section. A name another product already has is refused: merge them instead. */
+export async function editIngredient(tx: Tx, name: string, e: { newName?: string; dzial?: string }): Promise<void> {
+  const ing = await findIngredient(tx, name);
+  if (!ing) throw new DomainError("not_found", `Nie ma już „${name.trim()}” w bazie.`, 404);
+  const newName = e.newName?.trim();
+  if (newName && norm(newName) !== ing.nameNorm && await findIngredient(tx, newName)) {
+    throw new DomainError("exists", `„${newName}” już jest w bazie. Połącz te składniki zamiast zmieniać nazwę.`, 409);
+  }
+  await tx.ingredient.update({
+    where: { id: ing.id },
+    data: {
+      ...(newName && { name: newName, nameNorm: norm(newName) }),
+      ...(e.dzial && { departmentId: await departmentId(tx, e.dzial) }),
+    },
+  });
+}
+
+/**
+ * Folds `from` into `into`: recipes that used `from` use `into`, and each household keeps "mam" / "zawsze mam"
+ * if it had it on either. Then `from` is deleted. Merging a product into itself, or one that's already gone, does nothing.
+ */
+export async function mergeIngredients(tx: Tx, fromName: string, intoName: string): Promise<void> {
+  const [from, into] = [await findIngredient(tx, fromName), await findIngredient(tx, intoName)];
+  if (!into) throw new DomainError("not_found", `Nie ma „${intoName.trim()}” w bazie.`, 404);
+  if (!from || from.id === into.id) return;
+
+  await tx.recipeIngredient.updateMany({ where: { ingredientId: from.id }, data: { ingredientId: into.id } });
+  for (const p of await tx.pantryItem.findMany({ where: { ingredientId: from.id } })) {
+    await tx.pantryItem.upsert({
+      where: { householdId_ingredientId: { householdId: p.householdId, ingredientId: into.id } },
+      create: { householdId: p.householdId, ingredientId: into.id, have: p.have, always: p.always },
+      update: { ...(p.have && { have: true }), ...(p.always && { always: true }) },
+    });
+  }
+  await tx.ingredient.delete({ where: { id: from.id } }); // its pantry rows go with it
+}

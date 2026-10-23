@@ -19,7 +19,7 @@ iPhone (PWA) ──cookie session──▶ Next.js route handlers (/api/*) ─�
 ```
 
 > Migration in progress (branch `db-migration`), from Google Sheets + Apps Script + GitHub Pages:
-> phases 1–4 done (Next.js, database, accounts and households, the app on the database); phase 5 (sheet import) in progress.
+> phases 1–4 done (Next.js, database, accounts and households, the app on the database); phase 5 (sheet import) done; phase 6 (admin editing) in progress.
 > Next: importing the real spreadsheet, admin recipe editor, deploying on Vercel.
 
 - `src/`: Next.js App Router + React + TypeScript, TanStack Query, Tailwind CSS, Serwist for the PWA.
@@ -37,7 +37,7 @@ iPhone (PWA) ──cookie session──▶ Next.js route handlers (/api/*) ─�
     - `db.ts`: Prisma client. `http.ts`: session and household checks, JSON body validation (zod) and error responses. `errors.ts`: expected failures with a Polish message.
     - `identity/auth.ts`: Better Auth (email + password, 60-day sessions, `user`/`admin` roles).
     - `households/`: `rules.ts` (pure rules: who becomes owner, invite codes) and `service.ts` (create, invite, join, leave).
-    - `catalog/`: shared products (`ingredients.ts`) and recipe editing (`recipes.ts`); admin-only parts are checked in `kitchen/actions.ts`.
+    - `catalog/`: shared products (`ingredients.ts`: add, rename, move, merge, delete) and recipes (`recipes.ts`: create, edit, archive); admin-only actions are checked in `kitchen/actions.ts`. Recipes made in the app keep the id the phone gave them (`client_id`), so they can be planned offline.
     - `kitchen/`: the household's data: `state.ts` (read side, GET /api/state) and `actions.ts` (write side, POST /api/actions).
     - `import/`: `fromModel.ts` loads sheet-shaped data into the database (demo seed and sheet import); `report.ts` lists what to fix in the sheet; `sheet.ts` replaces the catalog with the sheet and checks the result.
 - `prisma/`: `schema.prisma` (tables), `migrations/` (committed SQL), `seed.ts` (demo data and a demo admin).

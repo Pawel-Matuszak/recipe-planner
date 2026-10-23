@@ -2,13 +2,13 @@ import { useSignals } from "@preact/signals-react/runtime";
 import { useEffect } from "react";
 import { config } from "../data/backend";
 import { toastMsg } from "../state/toast";
-import { openRecipe, randomMode, settingsOpen, tab, type Tab } from "../state/ui";
+import { newRecipe, openRecipe, randomMode, settingsOpen, tab, type Tab } from "../state/ui";
 import { FiltersSheet } from "./FiltersSheet";
 import { Header } from "./Header";
 import { Icon } from "./Icon";
 import { PantryView } from "./PantryView";
 import { PlanView } from "./PlanView";
-import { RecipeSheet } from "./RecipeSheet";
+import { NewRecipeSheet, RecipeSheet } from "./RecipeSheet";
 import { RecipesView } from "./RecipesView";
 import { SettingsSheet } from "./SettingsSheet";
 import { ShoppingView } from "./ShoppingView";
@@ -35,14 +35,14 @@ function TabBar() {
 function Overlay() {
   useSignals();
   const showSettings = settingsOpen.value || !config.value;
-  const open = showSettings || !!openRecipe.value;
+  const open = showSettings || newRecipe.value || !!openRecipe.value;
   useEffect(() => {
     document.body.classList.toggle("locked", open);
   }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-40 overflow-y-auto bg-bg" style={{ padding: "env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px)" }}>
-      {showSettings ? <SettingsSheet /> : <RecipeSheet />}
+      {showSettings ? <SettingsSheet /> : newRecipe.value ? <NewRecipeSheet /> : <RecipeSheet />}
     </div>
   );
 }
@@ -64,7 +64,8 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (openRecipe.value) { openRecipe.value = null; randomMode.value = false; }
+      if (newRecipe.value) newRecipe.value = false;
+      else if (openRecipe.value) { openRecipe.value = null; randomMode.value = false; }
       else if (settingsOpen.value) settingsOpen.value = false;
     };
     document.addEventListener("keydown", onKey);

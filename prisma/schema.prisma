@@ -192,6 +192,7 @@ model Category {
 model Recipe {
   id                  Int         @id @default(autoincrement())
   legacyId            String?     @unique @map("legacy_id") // sheet "ID", e.g. "r009"
+  clientId            String?     @unique @map("client_id") @db.Uuid // id given by the phone that created it (works offline)
   name                String
   typeId              Int         @map("type_id") @db.SmallInt
   difficulty          Difficulty?
