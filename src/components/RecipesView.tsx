@@ -26,7 +26,7 @@ export function RecipesView() {
   const m = useModel();
   const f = filters.value;
   const list = useMemo(() => (m ? filterRecipes(m, f) : []), [m, f]);
-  if (!m) return <Empty>Wczytuję przepisy z arkusza…</Empty>;
+  if (!m) return <Empty>Wczytuję przepisy…</Empty>;
   return (
     <>
       <p className="count">{list.length} {plural(list.length, "przepis", "przepisy", "przepisów")}{f.can ? " · od najmniejszej liczby braków" : ""}</p>

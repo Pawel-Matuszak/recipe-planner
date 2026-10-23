@@ -1,8 +1,9 @@
 import type { FormEvent } from "react";
 import { useSignals } from "@preact/signals-react/runtime";
 import { useState } from "react";
+import { extraItems } from "../actions";
 import { useAct, useModel } from "../data/sheet";
-import { DZIALY, groupBy, norm, shoppingItems, type PantryItem } from "../model";
+import { DZIALY, groupBy, isAdmin, norm, shoppingItems, type PantryItem } from "../model";
 import { toast } from "../state/toast";
 import { onlyHave, pantryQuery } from "../state/ui";
 import { CheckRow, Empty } from "./common";
@@ -25,10 +26,10 @@ export function PantryView() {
 
   const toggleShopping = (p: PantryItem) => {
     if (onExtra.has(norm(p.name))) { act({ action: "removeExtra", item: p.name }); toast(`Usunięto z listy zakupów: ${p.name}`); }
-    else { act({ action: "addExtra", items: [p.name] }); toast(`Na liście zakupów: ${p.name}`); }
+    else { act({ action: "addExtra", items: extraItems(p.name) }); toast(`Na liście zakupów: ${p.name}`); }
   };
   const remove = (p: PantryItem) => {
-    if (!confirm(`Usunąć „${p.name}” ze spiżarni?`)) return;
+    if (!confirm(`Usunąć „${p.name}” z bazy składników? Zniknie ze spiżarni wszystkich gospodarstw.`)) return;
     act({ action: "removePantry", name: p.name });
     toast(`Usunięto: ${p.name}`);
   };
@@ -39,7 +40,8 @@ export function PantryView() {
       <>
         <button type="button" className="rowbtn" disabled={auto} aria-pressed={extra || auto} aria-label={`${p.name}: ${label}`} title={label}
           onClick={() => toggleShopping(p)}><Icon name={extra || auto ? "cartDone" : "cartAdd"} /></button>
-        <button type="button" className="rowbtn" aria-label={`Usuń ${p.name} ze spiżarni`} title="Usuń ze spiżarni" onClick={() => remove(p)}><Icon name="trash" /></button>
+        {/* the catalog is shared by all households, so only admins delete from it */}
+        {isAdmin(m) && <button type="button" className="rowbtn" aria-label={`Usuń ${p.name} z bazy`} title="Usuń z bazy składników" onClick={() => remove(p)}><Icon name="trash" /></button>}
       </>
     );
   };

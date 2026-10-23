@@ -13,7 +13,7 @@ function Status({ s }: { s: SyncStatus }) {
   let dot: keyof typeof DOT = "none", txt = "Łączę…";
   if (s.kind === "busy") { dot = "busy"; txt = "Synchronizuję…"; }
   else if (s.kind === "error") { dot = "err"; txt = s.hasData ? "Offline: dane z telefonu" : "Brak połączenia"; }
-  else if (s.kind === "ok") { dot = "ok"; txt = s.demo ? "Tryb demo" : "Połączono z arkuszem"; }
+  else if (s.kind === "ok") { dot = "ok"; txt = s.demo ? "Tryb demo" : "Zsynchronizowano"; }
   if (s.pending) { dot = "busy"; txt += ` · ${s.pending} ${s.pending === 1 ? "zmiana czeka" : "zmian czeka"}`; }
   return <span className="flex items-center gap-1.5 text-[.78rem] text-muted"><span className={`size-2 flex-none rounded-full ${DOT[dot]}`} />{txt}</span>;
 }
@@ -73,7 +73,7 @@ export function Header() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0"><h1>{TITLES[tab.value]}</h1><Status s={s} /></div>
         <div className="row">
-          <button className="iconbtn" onClick={() => void refresh(qc, true)} aria-label="Odśwież z arkusza"><Icon name="refresh" /></button>
+          <button className="iconbtn" onClick={() => void refresh(qc, true)} aria-label="Odśwież"><Icon name="refresh" /></button>
           <button className="iconbtn" onClick={() => (settingsOpen.value = true)} aria-label="Ustawienia"><Icon name="settings" /></button>
         </div>
       </div>

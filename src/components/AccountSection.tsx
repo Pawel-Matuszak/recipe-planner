@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { authClient, clearAccount, useHouseholdOp, useMe, type Household, type Invite } from "../data/account";
 import { toast } from "../state/toast";
 
@@ -65,14 +65,14 @@ function NoHousehold() {
   );
 }
 
-function HouseholdPanel({ h }: { h: Household }) {
+function HouseholdPanel({ h, onLeft }: { h: Household; onLeft: () => void }) {
   const op = useHouseholdOp();
   const [invite, setInvite] = useState<Invite | null>(null);
   const makeInvite = () => op.mutate({ op: "invite" }, { onSuccess: r => setInvite(r as Invite) });
   const leave = () => {
     const last = h.members.length === 1;
     if (confirm(last ? `Jesteś ostatnią osobą w „${h.name}”. Gospodarstwo zostanie usunięte razem ze spiżarnią i planem. Kontynuować?` : `Opuścić „${h.name}”?`)) {
-      op.mutate({ op: "leave" });
+      op.mutate({ op: "leave" }, { onSuccess: onLeft });
     }
   };
   return (
@@ -99,16 +99,34 @@ function HouseholdPanel({ h }: { h: Household }) {
   );
 }
 
+interface Props {
+  /** The signed-in user's household (null: signed in without one), each time it is loaded. */
+  onHousehold: (h: Household | null) => void;
+  /** After signing out or leaving the household: the data on the phone belongs to someone else now. */
+  onGone: () => void;
+  /** Writes that haven't reached the server; signing out drops them. */
+  pending: number;
+}
+
 /** "Konto": sign in/up, then create or join a household and invite others. */
-export function AccountSection() {
+export function AccountSection({ onHousehold, onGone, pending }: Props) {
   const qc = useQueryClient();
   const session = authClient.useSession();
   const signedIn = !!session.data;
-  const me = useMe(signedIn);
+  const [signingOut, setSigningOut] = useState(false);
+  const me = useMe(signedIn && !signingOut); // paused while signing out, so it doesn't refetch with a dead session
+  useEffect(() => { if (!signedIn) setSigningOut(false); }, [signedIn]);
+  const household = me.data ? me.data.household : undefined;
+  // report once per loaded household (id), "none" (null), or nothing yet (undefined)
+  const householdKey = household === undefined ? undefined : household?.id ?? null;
+  useEffect(() => { if (household !== undefined) onHousehold(household); }, [householdKey]);
 
   const signOut = async () => {
+    if (pending && !confirm(`${pending} zmian nie dotarło jeszcze na serwer i przepadnie. Wylogować mimo to?`)) return;
+    setSigningOut(true);
     await authClient.signOut();
     clearAccount(qc);
+    onGone();
     toast("Wylogowano");
   };
 
@@ -126,7 +144,7 @@ export function AccountSection() {
           </div>
           {me.isPending ? <p className="count">Wczytuję gospodarstwo…</p>
             : me.error ? <p className="text-[.9rem] text-paprika">{me.error.message}</p>
-            : me.data?.household ? <HouseholdPanel h={me.data.household} /> : <NoHousehold />}
+            : me.data?.household ? <HouseholdPanel h={me.data.household} onLeft={onGone} /> : <NoHousehold />}
         </>
       )}
     </div>

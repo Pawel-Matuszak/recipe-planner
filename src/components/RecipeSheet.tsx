@@ -1,9 +1,10 @@
 import { useSignals } from "@preact/signals-react/runtime";
 import { useState } from "react";
+import type { Action } from "../actions";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { DZIALY, ingState, norm, parseIng, similarIngredients, splitIng, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
+import { DZIALY, ingState, isAdmin, norm, parseIng, similarIngredients, splitIng, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { openRecipe, randomMode } from "../state/ui";
 import { MissBadge } from "./common";
@@ -102,7 +103,7 @@ function RecipeEditor({ m, r, done }: { m: Model; r: Recipe; done: () => void })
   const save = () => {
     const newIng = lines(ing).join("; ");
     act({
-      action: "editRecipe", by: r.by, key: r.key, desc: desc.trim(), steps: lines(steps).join("\n"),
+      action: "editRecipe", recipeId: r.id, desc: desc.trim(), steps: lines(steps).join("\n"),
       // only resend ingredients when they changed, so fixing a step doesn't mark them as checked
       ...(newIng !== lines(ingText(r)).join("; ") && { ing: newIng }),
     });
@@ -149,8 +150,8 @@ export function RecipeSheet() {
   const [editing, setEditing] = useState<string | null>(null); // id of the recipe being edited
   if (!r || !m) return null;
   const ings = r.ing.map(i => ({ i, st: ingState(m, i.name) })).sort((a, b) => ORDER[a.st] - ORDER[b.st]);
-  const setField = (field: "done" | "rate" | "notes", value: boolean | number | string) =>
-    act({ action: "setRecipeField", by: r.by, key: r.key, field, value });
+  const setField = (f: Pick<Extract<Action, { action: "setRecipeField" }>, "field" | "value">) =>
+    act({ action: "setRecipeField", recipeId: r.id, ...f } as Action);
   const close = () => { openRecipe.value = null; randomMode.value = false; setEditing(null); };
 
   if (editing === r.id) {
@@ -171,7 +172,7 @@ export function RecipeSheet() {
         <button className="btn ghost" onClick={close}>‹ Wróć</button>
         <div className="row">
           {randomMode.value && <button className="btn primary" onClick={() => randomPick(m)}>Losuj jeszcze raz</button>}
-          <button className="btn ghost" onClick={() => setEditing(r.id)}>Edytuj</button>
+          {isAdmin(m) && <button className="btn ghost" onClick={() => setEditing(r.id)}>Edytuj</button>}
         </div>
       </div>
       <h2>{r.name}</h2>
@@ -201,7 +202,7 @@ export function RecipeSheet() {
               <span className={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
               <span className="min-w-0 flex-1">{i.name}
                 {st === "always" && <span className="block text-[.75rem] text-muted">zawsze mam</span>}
-                {!m.pantry.has(norm(i.name)) && <span className="block text-[.75rem] text-paprika">poza bazą, popraw w „Edytuj”</span>}
+                {!m.pantry.has(norm(i.name)) && <span className="block text-[.75rem] text-paprika">poza bazą{isAdmin(m) ? ", popraw w „Edytuj”" : ""}</span>}
               </span>
               {i.qty && <span className="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
             </button>
@@ -228,17 +229,17 @@ export function RecipeSheet() {
       <div className="section">
         <h3>Po zrobieniu</h3>
         <label className="flex items-center gap-2.5 font-bold">
-          <input type="checkbox" className="size-[22px] accent-basil" checked={r.done} onChange={e => setField("done", e.currentTarget.checked)} /> Było robione
+          <input type="checkbox" className="size-[22px] accent-basil" checked={r.done} onChange={e => setField({ field: "done", value: e.currentTarget.checked })} /> Było robione
         </label>
         <div className="flex gap-0.5" role="group" aria-label="Ocena">
           {[1, 2, 3, 4, 5].map(n => (
             <button key={n} className={`p-1 text-[1.7rem] leading-none ${n <= r.rate ? "text-saffron" : "text-line"}`} aria-label={`${n} na 5`}
-              onClick={() => setField("rate", n === r.rate ? "" : n)}>★</button>
+              onClick={() => setField({ field: "rate", value: n === r.rate ? "" : n })}>★</button>
           ))}
         </div>
         <textarea key={r.id} className="min-h-[84px] w-full resize-y rounded-[10px] border border-line bg-surface px-3 py-2.5"
           placeholder="Notatka na następny raz, np. mniej soli, podwójny sos" defaultValue={r.notes}
-          onBlur={e => { const v = e.currentTarget.value; if (v !== r.notes) { setField("notes", v); toast("Notatka zapisana"); } }} />
+          onBlur={e => { const v = e.currentTarget.value; if (v !== r.notes) { setField({ field: "notes", value: v }); toast("Notatka zapisana"); } }} />
       </div>
       <p className="count">{r.type}{r.cats.length ? " · " + r.cats.join(", ") : ""}</p>
     </div>

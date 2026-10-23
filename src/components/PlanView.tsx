@@ -1,7 +1,7 @@
 import { useSignals } from "@preact/signals-react/runtime";
 import { useState } from "react";
 import { useAct, useModel } from "../data/sheet";
-import { iso, norm, type Model, type PlanEntry } from "../model";
+import { iso, newId, norm, type Model, type PlanEntry } from "../model";
 import { toast } from "../state/toast";
 import { openRecipe, randomMode } from "../state/ui";
 import { Empty, MissBadge } from "./common";
@@ -11,7 +11,7 @@ const DONE_SHOWN = 5;
 export function useQueueAdd() {
   const act = useAct();
   return (id: string, text: string) => {
-    act({ action: "addPlan", date: iso(new Date()), meal: "", id, text });
+    act({ action: "addPlan", uid: newId(), date: iso(new Date()), meal: "", id, text });
     toast("Dodano do ugotowania");
   };
 }
@@ -43,8 +43,8 @@ function QueueRow({ m, p }: { m: Model; p: PlanEntry }) {
   const act = useAct();
   const r = p.id ? m.recipes.find(x => x.id === p.id) : undefined;
   const setCooked = (cooked: boolean) => {
-    act({ action: "setCooked", date: p.date, meal: p.meal, id: p.id, text: p.text, cooked });
-    if (cooked && r && !r.done) act({ action: "setRecipeField", by: r.by, key: r.key, field: "done", value: true });
+    act({ action: "setCooked", uid: p.uid, cooked });
+    if (cooked && r && !r.done) act({ action: "setRecipeField", recipeId: r.id, field: "done", value: true });
     if (cooked) toast(`${r?.name ?? p.text}: ugotowane`);
   };
   return (
@@ -58,7 +58,7 @@ function QueueRow({ m, p }: { m: Model; p: PlanEntry }) {
         {r && !p.cooked && <div><MissBadge m={m} r={r} /></div>}
       </div>
       <button className="size-9 rounded-full text-[1.2rem] text-muted" aria-label="Usuń z listy"
-        onClick={() => act({ action: "removePlan", date: p.date, meal: p.meal, id: p.id, text: p.text })}>×</button>
+        onClick={() => act({ action: "removePlan", uid: p.uid })}>×</button>
     </div>
   );
 }
@@ -75,13 +75,13 @@ export function PlanView() {
       <div className="section">
         <h3>Do ugotowania</h3>
         {todo.length
-          ? <div className="list">{todo.map((p, k) => <QueueRow key={k} m={m} p={p} />)}</div>
+          ? <div className="list">{todo.map(p => <QueueRow key={p.uid} m={m} p={p} />)}</div>
           : <Empty>Pusto. Dodaj danie powyżej albo z karty przepisu.</Empty>}
       </div>
       {cooked.length > 0 && (
         <div className="section">
           <h3>Ostatnio ugotowane</h3>
-          <div className="list">{cooked.map((p, k) => <QueueRow key={k} m={m} p={p} />)}</div>
+          <div className="list">{cooked.map(p => <QueueRow key={p.uid} m={m} p={p} />)}</div>
         </div>
       )}
     </>

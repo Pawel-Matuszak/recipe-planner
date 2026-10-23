@@ -1,6 +1,8 @@
 // Shared plumbing for route handlers: who is calling, JSON in/out, and turning errors into responses.
 import { z } from "zod";
+import { getDb } from "./db";
 import { DomainError, unauthorized } from "./errors";
+import { householdIdOf } from "./households/service";
 import { sessionUser, type SessionUser } from "./identity/auth";
 
 type Handler = (user: SessionUser, req: Request) => Promise<unknown>;
@@ -16,6 +18,17 @@ export function withUser(fn: Handler) {
       return errorResponse(e);
     }
   };
+}
+
+export interface HouseholdCtx { user: SessionUser; householdId: string }
+
+/** Like `withUser`, for endpoints that work on the caller's household (refused while they aren't in one). */
+export function withHousehold(fn: (ctx: HouseholdCtx, req: Request) => Promise<unknown>) {
+  return withUser(async (user, req) => {
+    const householdId = await householdIdOf(getDb(), user.id);
+    if (!householdId) throw new DomainError("no_household", "Nie należysz do żadnego gospodarstwa. Utwórz je albo dołącz w Ustawieniach.", 409);
+    return fn({ user, householdId }, req);
+  });
 }
 
 export async function readBody<T extends z.ZodType>(req: Request, schema: T): Promise<z.infer<T>> {

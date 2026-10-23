@@ -8,7 +8,7 @@ import { filtersOpen, openRecipe, resetFilters, tab } from "../state/ui";
 import { App } from "./App";
 
 function renderApp() {
-  setConfig({ url: DEMO_URL, token: "" });
+  setConfig({ url: DEMO_URL });
   return render(<QueryClientProvider client={createQueryClient()}><App /></QueryClientProvider>);
 }
 

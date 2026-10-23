@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { demoTables } from "../../mock";
-import { buildModel, norm } from "../../model";
+import { norm, parseSheet } from "../../model";
 import { createDb, truncateAll } from "../db";
 import { importModel } from "./fromModel";
 
 const db = createDb();
-const model = buildModel(demoTables());
+const model = parseSheet(demoTables());
 
 async function seedDemo() {
   await db.user.create({ data: { id: "u1", name: "Ania", email: "ania@example.com" } });

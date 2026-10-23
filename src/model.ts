@@ -1,21 +1,29 @@
-// Pure data model: turns raw sheet tables into recipes/pantry/plan and answers
-// "what can I cook" and "what do I need to buy". No DOM, no network.
+// Pure data model: turns the app state (from the server, or a parsed spreadsheet) into recipes/pantry/plan
+// and answers "what can I cook" and "what do I need to buy". No DOM, no network.
 
 export type Row = string[];
+/** Raw spreadsheet tabs: the demo data and the one-off import from Google Sheets. */
 export interface Tables { main: Row[]; pantry: Row[]; plan: Row[]; extra: Row[] }
 
 export interface Recipe {
-  id: string;          // stable key used by the UI and the plan ("r001", or "#Name" when the sheet row has no ID)
-  key: string;         // value the API looks up
-  by: "id" | "name";   // which column `key` lives in
+  id: string;          // stable key used by the UI and the plan (database id; "r001" or "#Name" for sheet data)
   name: string; type: string; diff: string; done: boolean; arch: boolean;
   links: string[]; cats: string[]; time: number; ing: Ing[]; ver: boolean; rate: number; notes: string;
   desc: string; steps: string[];
 }
+/** One product of the shared catalog, with this household's "Mam" / "Zawsze mam". */
 export interface PantryItem { name: string; dzial: string; have: boolean; always: boolean }
-export interface PlanEntry { date: string; meal: string; id: string; text: string; cooked: boolean }
-export interface ExtraItem { item: string; bought: boolean }
-export interface Model { recipes: Recipe[]; pantry: Map<string, PantryItem>; plan: PlanEntry[]; extra: ExtraItem[] }
+/** `uid` is created on the phone, so a queued write can point at an entry the server hasn't seen yet. */
+export interface PlanEntry { uid: string; date: string; meal: string; id: string; text: string; cooked: boolean }
+export interface ExtraItem { uid: string; item: string; bought: boolean }
+export interface Me { name: string; role: string }
+export interface Model { me: Me; recipes: Recipe[]; pantry: Map<string, PantryItem>; plan: PlanEntry[]; extra: ExtraItem[] }
+
+/** What the server sends (GET /api/state) and what the phone caches: the model as plain JSON, amounts unparsed. */
+export interface StateRecipe extends Omit<Recipe, "ing"> { ing: { name: string; qty: string | null }[] }
+export interface State { me: Me; recipes: StateRecipe[]; pantry: PantryItem[]; plan: PlanEntry[]; extra: ExtraItem[] }
+
+export const isAdmin = (m: { me: Me }) => m.me.role === "admin";
 
 export const DZIALY = ["Warzywa i owoce", "Mięso i ryby", "Nabiał i jajka", "Pieczywo", "Makaron, ryż, kasze", "Puszki i słoiki", "Sosy i przyprawy", "Pieczenie", "Inne"];
 
@@ -117,7 +125,8 @@ export function parseDate(v: unknown): string {
 
 const findCol = (headers: Row, test: (h: string) => boolean) => headers.findIndex(h => test(norm(h)));
 
-export function buildModel(t: Tables): Model {
+/** Reads the Google Sheets tabs (columns matched by header). */
+export function parseSheet(t: Tables, me: Me = { name: "", role: "user" }): Model {
   const [mh = [], ...mrows] = t.main;
   const ix = {
     name: findCol(mh, h => h === "nazwa"), type: findCol(mh, h => h === "typ"), diff: findCol(mh, h => h.startsWith("trudno")),
@@ -135,7 +144,7 @@ export function buildModel(t: Tables): Model {
     if (!name) continue;
     const sheetId = g(r, "id").trim();
     recipes.push({
-      id: sheetId || "#" + name, key: sheetId || name, by: sheetId ? "id" : "name",
+      id: sheetId || "#" + name,
       name, type: g(r, "type").trim() || "Inne", diff: g(r, "diff").trim(), done: bool(g(r, "done")), arch: bool(g(r, "arch")),
       links: g(r, "link").split(/,(?=\s*(?:https?:|www\.))/).map(s => s.trim()).filter(s => /^(https?:\/\/|www\.)/i.test(s)),
       cats: [g(r, "k1"), g(r, "k2")].map(s => s.trim()).filter(Boolean),
@@ -154,12 +163,34 @@ export function buildModel(t: Tables): Model {
   }
 
   const plan = t.plan.slice(1)
-    .map(r => ({ date: parseDate(r[0]), meal: String(r[1] ?? "").trim(), id: String(r[2] ?? "").trim(), text: String(r[3] ?? "").trim(), cooked: bool(r[4]) }))
+    .map(r => ({ uid: newId(), date: parseDate(r[0]), meal: String(r[1] ?? "").trim(), id: String(r[2] ?? "").trim(), text: String(r[3] ?? "").trim(), cooked: bool(r[4]) }))
     .filter(p => p.date && (p.id || p.text));
 
-  const extra = t.extra.slice(1).map(r => ({ item: String(r[0] ?? "").trim(), bought: bool(r[1]) })).filter(x => x.item);
+  const extra = t.extra.slice(1).map(r => ({ uid: newId(), item: String(r[0] ?? "").trim(), bought: bool(r[1]) })).filter(x => x.item);
 
-  return { recipes, pantry, plan, extra };
+  return { me, recipes, pantry, plan, extra };
+}
+
+export const newId = () => crypto.randomUUID();
+
+export function buildModel(s: State): Model {
+  return {
+    me: s.me,
+    recipes: s.recipes.map(r => ({ ...r, ing: r.ing.map(i => ({ name: i.name, qty: i.qty ? parseQty(i.qty) : null })) })),
+    pantry: new Map(s.pantry.map(p => [norm(p.name), p])),
+    plan: s.plan,
+    extra: s.extra,
+  };
+}
+
+export function toState(m: Model): State {
+  return {
+    me: m.me,
+    recipes: m.recipes.map(r => ({ ...r, ing: r.ing.map(i => ({ name: i.name, qty: i.qty?.raw ?? null })) })),
+    pantry: [...m.pantry.values()],
+    plan: m.plan,
+    extra: m.extra,
+  };
 }
 
 export type IngState = "have" | "miss" | "always";

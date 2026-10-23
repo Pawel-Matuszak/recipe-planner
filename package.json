@@ -3,9 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Obiadki: mobilna apka do przepisów, spiżarni, planu tygodnia i listy zakupów.",
+  "description": "Obiadki: mobilna apka do przepisów, spiżarni, planu i listy zakupów dla gospodarstw domowych.",
   "scripts": {
     "dev": "next dev",
+    "dev:local": "cross-env DATABASE_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki DIRECT_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki next dev",
     "dev:mock": "cross-env NEXT_PUBLIC_DEMO=1 next dev",
     "build": "next build",
     "start": "next start",

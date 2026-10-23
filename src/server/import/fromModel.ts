@@ -1,4 +1,4 @@
-// Loads a sheet-shaped Model (from buildModel) into empty tables: the global catalog plus one household's
+// Loads a sheet-shaped Model (from parseSheet) into empty tables: the global catalog plus one household's
 // kitchen. Used by the demo seed and by the one-off import of the real spreadsheet.
 import { randomUUID } from "node:crypto";
 import type { Difficulty } from "../../generated/prisma/enums";
@@ -35,14 +35,14 @@ export async function importModel(tx: Tx, m: Model, to: ImportTarget): Promise<I
   const cats = await tx.category.createManyAndReturn({ data: [...new Set(m.recipes.flatMap(r => r.cats))].map(name => ({ name })) });
   const catId = new Map(cats.map(c => [c.name, c.id]));
 
-  // recipes keep their sheet ID so plan rows can find them; "#Name" ids (no sheet ID) map by model id only
+  // recipes keep their sheet ID so plan rows can find them; "#Name" ids (rows without an ID) have no legacy id
   const recipeId = new Map<string, number>();
   let recipeIngredients = 0, recipeState = 0;
   for (const r of m.recipes) {
     const ing = r.ing.filter(i => norm(i.name));
     const created = await tx.recipe.create({
       data: {
-        legacyId: r.by === "id" ? r.key : null,
+        legacyId: r.id.startsWith("#") ? null : r.id,
         name: r.name, typeId: typeId.get(r.type)!, difficulty: DIFFICULTY[norm(r.diff)] ?? null, timeMin: r.time || null,
         description: r.desc, archived: r.arch, ingredientsVerified: r.ver, createdById: to.createdById,
         categories: { create: [...new Set(r.cats)].map(c => ({ categoryId: catId.get(c)! })) },

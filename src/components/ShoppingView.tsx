@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useSignals } from "@preact/signals-react/runtime";
 import { useState } from "react";
+import { extraItems } from "../actions";
 import { useAct, useModel } from "../data/sheet";
 import { groupBy, norm, shoppingItems } from "../model";
 import { toast } from "../state/toast";
@@ -29,7 +30,7 @@ export function ShoppingView() {
   const addExtra = (e: FormEvent) => {
     e.preventDefault();
     const v = extra.trim();
-    if (v) { act({ action: "addExtra", items: [v] }); setExtra(""); }
+    if (v) { act({ action: "addExtra", items: extraItems(v) }); setExtra(""); }
   };
 
   return (
@@ -56,7 +57,7 @@ export function ShoppingView() {
           <button className="iconbtn primary" type="submit">Dodaj</button>
         </form>
         {m.extra.length
-          ? m.extra.map((x, k) => <CheckRow key={k} label={x.item} checked={x.bought} done={x.bought} onChange={c => act({ action: "setExtra", item: x.item, bought: c })} />)
+          ? m.extra.map(x => <CheckRow key={x.uid} label={x.item} checked={x.bought} done={x.bought} onChange={c => act({ action: "setExtra", uid: x.uid, bought: c })} />)
           : <Empty>Pusto. Dopisz coś powyżej albo dodaj składnik z zakładki Spiżarnia.</Empty>}
         {m.extra.some(x => x.bought) && <button className="btn ghost" onClick={() => act({ action: "clearBoughtExtra" })}>Usuń kupione z listy</button>}
       </div>
