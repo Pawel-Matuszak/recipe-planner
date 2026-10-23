@@ -68,11 +68,11 @@ export async function runAction(tx: Tx, ctx: Ctx, a: Action): Promise<void> {
     case "addExtra": {
       // an item already open on the list isn't added twice
       const open = new Set((await tx.shoppingExtra.findMany({ where: { householdId, bought: false }, select: { item: true } })).map(x => norm(x.item)));
-      const data = [];
+      const data = [], t0 = Date.now();
       for (const { uid, item } of a.items) {
         if (open.has(norm(item))) continue;
         open.add(norm(item));
-        data.push({ id: uid, householdId, item: item.trim() });
+        data.push({ id: uid, householdId, item: item.trim(), createdAt: new Date(t0 + data.length) }); // keeps the order they were added in
       }
       await tx.shoppingExtra.createMany({ data, skipDuplicates: true });
       return;

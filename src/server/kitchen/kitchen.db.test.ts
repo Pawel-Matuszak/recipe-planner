@@ -131,6 +131,12 @@ describe("POST /api/actions", () => {
     expect(after.extra).toEqual(s.extra);
   });
 
+  it("keeps shopping items in the order they were added, also when added together", async () => {
+    const items = ["chleb", "masło", "ser", "jabłka", "kawa"];
+    await send({ action: "addExtra", items: extraItems(...items) });
+    expect((await getState()).extra.map(x => x.item)).toEqual(["papier do pieczenia", ...items]);
+  });
+
   it("rejects malformed actions and unknown recipes", async () => {
     expect((await send({ action: "setPantry", name: "" })).status).toBe(400);
     expect((await send({ action: "setRecipeField", recipeId: "99999", field: "done", value: true })).json).toMatchObject({ error: "not_found" });

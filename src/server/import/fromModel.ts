@@ -65,15 +65,18 @@ export async function importModel(tx: Tx, m: Model, to: ImportTarget): Promise<I
     data: pantry.map(p => ({ householdId: to.householdId, ingredientId: ingId.get(norm(p.name))!, have: p.have, always: p.always })),
   });
 
+  // rows inserted together would share one created_at, which is what the app sorts by: space them 1 ms apart
+  const t0 = Date.now(), at = (i: number) => new Date(t0 + i);
+
   // plan rows pointing at a recipe that no longer exists keep their text so nothing is lost
-  const plan = m.plan.map(p => {
+  const plan = m.plan.map((p, i) => {
     const rid = p.id ? recipeId.get(p.id) : undefined;
     const text = rid ? p.text || null : p.text || p.id || null;
-    return { id: randomUUID(), householdId: to.householdId, recipeId: rid ?? null, text, meal: p.meal, plannedOn: new Date(`${p.date}T00:00:00Z`), cooked: p.cooked };
+    return { id: randomUUID(), householdId: to.householdId, recipeId: rid ?? null, text, meal: p.meal, plannedOn: new Date(`${p.date}T00:00:00Z`), cooked: p.cooked, createdAt: at(i) };
   }).filter(p => p.recipeId || p.text);
   await tx.planEntry.createMany({ data: plan });
 
-  const extras = await tx.shoppingExtra.createMany({ data: m.extra.map(x => ({ id: randomUUID(), householdId: to.householdId, item: x.item, bought: x.bought })) });
+  const extras = await tx.shoppingExtra.createMany({ data: m.extra.map((x, i) => ({ id: randomUUID(), householdId: to.householdId, item: x.item, bought: x.bought, createdAt: at(i) })) });
 
   return {
     departments: departments.length, ingredients: ingRows.length, recipeTypes: types.length, categories: cats.length,
