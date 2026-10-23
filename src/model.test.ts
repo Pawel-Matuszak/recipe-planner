@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildModel, filterRecipes, missingOf, parseDate, parseIng, plural, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
+import { parseSheet, filterRecipes, missingOf, parseDate, parseIng, plural, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
 
 const MAIN_HEADER = ["Obrazek", "Nazwa", "Typ", "Trudność", "Było robione?", "Link", "Kategoria 1", "Kateogria 2", "Archived", "ID", "Czas (min)", "Składniki", "Składniki sprawdzone", "Ocena", "Notatki", "Opis", "Przepis"];
 const recipe = (id: string, name: string, ing: string, extra: Partial<Record<string, string>> = {}) => {
@@ -46,48 +46,46 @@ const tables = (): Tables => ({
 
 const F: Filters = { q: "", type: "Wszystkie", cat: "", maxTime: 0, can: false, todo: false, arch: false };
 
-describe("buildModel", () => {
+describe("parseSheet", () => {
   it("reads recipes by header, keeps rows without ID under their name", () => {
-    const m = buildModel(tables());
+    const m = parseSheet(tables());
     expect(m.recipes.map(r => r.id)).toEqual(["r001", "r002", "r003", "#Nowe danie bez ID", "r004", "r005"]);
-    const noId = m.recipes.find(r => r.name === "Nowe danie bez ID")!;
-    expect(noId).toMatchObject({ by: "name", key: "Nowe danie bez ID" });
     expect(m.recipes[0]).toMatchObject({ time: 20, done: true, cats: ["Makaron"] });
   });
 
   it("finds columns even when they are reordered", () => {
     const t = tables();
     t.main = t.main.map(r => [...r].reverse());
-    const m = buildModel(t);
+    const m = parseSheet(t);
     expect(m.recipes[0]).toMatchObject({ id: "r001", name: "Carbonara", time: 20 });
   });
 
   it("splits several links in one cell", () => {
-    expect(buildModel(tables()).recipes.find(r => r.id === "r005")!.links).toEqual(["https://youtu.be/a", "https://example.com/b"]);
+    expect(parseSheet(tables()).recipes.find(r => r.id === "r005")!.links).toEqual(["https://youtu.be/a", "https://example.com/b"]);
   });
 
   it("reads description and splits steps into lines, dropping blanks and existing numbering", () => {
     const t = tables();
     t.main[1] = recipe("r001", "Carbonara", "makaron", { opis: " Klasyk z Rzymu ", przepis: "1. Ugotuj makaron\r\n\n2) Podsmaż boczek\nWymieszaj z jajkami" });
-    expect(buildModel(t).recipes[0]).toMatchObject({ desc: "Klasyk z Rzymu", steps: ["Ugotuj makaron", "Podsmaż boczek", "Wymieszaj z jajkami"] });
+    expect(parseSheet(t).recipes[0]).toMatchObject({ desc: "Klasyk z Rzymu", steps: ["Ugotuj makaron", "Podsmaż boczek", "Wymieszaj z jajkami"] });
   });
 
   it("gives empty description and steps when the sheet has no such columns", () => {
     const t = tables();
     t.main = t.main.map(r => r.slice(0, -2));
-    expect(buildModel(t).recipes[0]).toMatchObject({ desc: "", steps: [] });
+    expect(parseSheet(t).recipes[0]).toMatchObject({ desc: "", steps: [] });
   });
 
   it("parses plan dates in several formats and skips empty rows", () => {
-    const m = buildModel(tables());
+    const m = parseSheet(tables());
     expect(m.plan.map(p => p.date)).toEqual(["2026-10-12", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-20"]);
-    expect(m.extra).toEqual([{ item: "papier do pieczenia", bought: false }]);
+    expect(m.extra).toEqual([{ uid: expect.any(String), item: "papier do pieczenia", bought: false }]);
   });
 });
 
 describe("missing ingredients", () => {
   it("counts pantry 'have' and 'always' as available, unknown as missing", () => {
-    const m = buildModel(tables());
+    const m = parseSheet(tables());
     const byName = (n: string) => m.recipes.find(r => r.name === n)!;
     const miss = (n: string) => missingOf(m, byName(n)).map(i => i.name);
     expect(miss("Carbonara")).toEqual(["boczek", "parmezan"]);
@@ -96,14 +94,14 @@ describe("missing ingredients", () => {
   });
 
   it("'Mogę zrobić teraz' sorts by fewest missing and hides archived", () => {
-    const m = buildModel(tables());
+    const m = parseSheet(tables());
     const list = filterRecipes(m, { ...F, can: true });
     expect(list[0].name).toBe("Omlet");
     expect(list.some(r => r.arch)).toBe(false);
   });
 
   it("filters by time, type, todo and search over ingredients", () => {
-    const m = buildModel(tables());
+    const m = parseSheet(tables());
     expect(filterRecipes(m, { ...F, maxTime: 15 }).map(r => r.name)).toEqual(["Omlet"]);
     expect(filterRecipes(m, { ...F, type: "Śniadanie" }).map(r => r.name)).toEqual(["Omlet"]);
     expect(filterRecipes(m, { ...F, todo: true }).some(r => r.name === "Carbonara")).toBe(false);
@@ -112,7 +110,7 @@ describe("missing ingredients", () => {
   });
 
   it("random pool prefers main dishes missing at most 2", () => {
-    const m = buildModel(tables());
+    const m = parseSheet(tables());
     const pool = randomPool(m, filterRecipes(m, F), true);
     expect(pool.map(r => r.name).sort()).toEqual(["Carbonara", "Nowe danie bez ID", "Pizza"]);
   });
@@ -120,7 +118,7 @@ describe("missing ingredients", () => {
 
 describe("shopping list", () => {
   it("collects missing ingredients for queued, not-cooked recipes", () => {
-    const m = buildModel(tables());
+    const m = parseSheet(tables());
     const items = shoppingItems(m);
     expect(items.map(i => i.name)).toEqual(["boczek", "parmezan", "kiełbasa", "cukinia", "papryka", "cebula"]);
     expect(items.find(i => i.name === "cebula")).toMatchObject({ dzial: "Warzywa i owoce", total: "", for: [{ recipe: "Leczo", qty: "" }] });
@@ -133,7 +131,7 @@ describe("shopping list", () => {
     t.main[1] = recipe("r001", "Carbonara", "makaron: 0,5 kg; boczek: 150 g; cebula", { czas: "20" });
     t.pantry = t.pantry.filter(r => r[0] !== "makaron");
     t.plan.push(["2026-10-21", "", "r010", "", "FALSE"]);
-    const makaron = shoppingItems(buildModel(t)).find(i => i.name === "makaron")!;
+    const makaron = shoppingItems(parseSheet(t)).find(i => i.name === "makaron")!;
     expect(makaron.total).toBe("1,25 kg"); // Carbonara is queued twice
     expect(makaron.for).toEqual([{ recipe: "Carbonara", qty: "1 kg" }, { recipe: "Pasta rosa", qty: "250 g" }]);
   });
@@ -141,7 +139,7 @@ describe("shopping list", () => {
   it("counts a recipe queued twice twice", () => {
     const t = tables();
     t.main[1] = recipe("r001", "Carbonara", "boczek: 150 g");
-    expect(shoppingItems(buildModel(t)).find(i => i.name === "boczek")!.total).toBe("300 g");
+    expect(shoppingItems(parseSheet(t)).find(i => i.name === "boczek")!.total).toBe("300 g");
   });
 });
 
@@ -193,7 +191,7 @@ describe("dates and words", () => {
 });
 
 describe("matching ingredients to the pantry", () => {
-  const pantry = buildModel({ main: [MAIN_HEADER], plan: [], extra: [], pantry: [
+  const pantry = parseSheet({ main: [MAIN_HEADER], plan: [], extra: [], pantry: [
     ["Składnik", "Dział", "Mam", "Zawsze mam"],
     ...["masło orzechowe", "masło", "twaróg", "pomidory", "bazylia", "ser żółty", "serek wiejski", "jogurt grecki", "olej", "makaron", "makaron udon"]
       .map(n => [n, "Inne", "FALSE", "FALSE"]),
@@ -241,7 +239,19 @@ describe("matching ingredients to the pantry", () => {
   });
 
   it("lists recipe ingredients that aren't in the pantry", () => {
-    const m = buildModel(tables());
+    const m = parseSheet(tables());
     expect(unknownOf(m, m.recipes.find(r => r.id === "r002")!).map(i => i.name)).toEqual(["kiełbasa", "cukinia", "papryka"]);
+  });
+});
+
+describe("state from the server", () => {
+  it("round-trips through toState and buildModel, parsing amounts", async () => {
+    const { toState, buildModel } = await import("./model");
+    const sheet = parseSheet(tables(), { name: "Ania", role: "admin" });
+    const m = buildModel(JSON.parse(JSON.stringify(toState(sheet))));
+    expect(m.me).toEqual({ name: "Ania", role: "admin" });
+    expect(m.recipes).toEqual(sheet.recipes);
+    expect([...m.pantry.keys()]).toEqual([...sheet.pantry.keys()]);
+    expect(m.plan).toEqual(sheet.plan);
   });
 });

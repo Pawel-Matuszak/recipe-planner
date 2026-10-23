@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { QueryClientProvider } from "@tanstack/preact-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { DEMO_URL, setConfig } from "../data/backend";
 import { createQueryClient } from "../data/queryClient";
@@ -8,7 +8,7 @@ import { filtersOpen, openRecipe, resetFilters, tab } from "../state/ui";
 import { App } from "./App";
 
 function renderApp() {
-  setConfig({ url: DEMO_URL, token: "" });
+  setConfig({ url: DEMO_URL });
   return render(<QueryClientProvider client={createQueryClient()}><App /></QueryClientProvider>);
 }
 

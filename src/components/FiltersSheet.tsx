@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useSignals } from "@preact/signals-react/runtime";
+import { useEffect, useRef } from "react";
 import { useModel } from "../data/sheet";
 import { filterRecipes, plural, type Filters } from "../model";
 import { DEFAULT_FILTERS, filters, filtersOpen, resetFilters, setFilter } from "../state/ui";
@@ -22,12 +23,12 @@ function Choice<T extends string | number>({ legend, name, options, value, label
   legend: string; name: string; options: T[]; value: T; label: (v: T) => string; onChange: (v: T) => void;
 }) {
   return (
-    <fieldset class="grid gap-2">
-      <legend class="mb-2 font-bold">{legend}</legend>
-      <div class="flex flex-wrap gap-1.5">
+    <fieldset className="grid gap-2">
+      <legend className="mb-2 font-bold">{legend}</legend>
+      <div className="flex flex-wrap gap-1.5">
         {options.map(o => (
-          <label key={o} class="opt">
-            <input type="radio" class="sr-only" name={name} checked={o === value} onChange={() => onChange(o)} />
+          <label key={o} className="opt">
+            <input type="radio" className="sr-only" name={name} checked={o === value} onChange={() => onChange(o)} />
             {label(o)}
           </label>
         ))}
@@ -38,14 +39,15 @@ function Choice<T extends string | number>({ legend, name, options, value, label
 
 function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label class="check">
+    <label className="check">
       <input type="checkbox" checked={checked} onChange={e => onChange(e.currentTarget.checked)} />
-      <span class="lbl">{label}{hint && <span class="sub">{hint}</span>}</span>
+      <span className="lbl">{label}{hint && <span className="sub">{hint}</span>}</span>
     </label>
   );
 }
 
 export function FiltersSheet() {
+  useSignals();
   const m = useModel();
   const ref = useRef<HTMLDialogElement>(null);
   const open = filtersOpen.value;
@@ -65,27 +67,27 @@ export function FiltersSheet() {
   const close = () => (filtersOpen.value = false);
 
   return (
-    <dialog ref={ref} class="sheet" aria-labelledby="filtersTitle" onClose={close}
+    <dialog ref={ref} className="sheet" aria-labelledby="filtersTitle" onClose={close}
       onClick={e => { if (e.target === e.currentTarget) close(); }}>
       {open && m && (
-        <div class="flex max-h-[inherit] flex-col">
-          <div class="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <div className="flex max-h-[inherit] flex-col">
+          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
             <h2 id="filtersTitle">Filtry</h2>
-            <button class="btn ghost" disabled={!activeFilters(f).length && !f.can} onClick={resetFilters}>Wyczyść</button>
+            <button className="btn ghost" disabled={!activeFilters(f).length && !f.can} onClick={resetFilters}>Wyczyść</button>
           </div>
-          <div class="grid gap-5 overflow-y-auto overscroll-contain px-4 py-4">
+          <div className="grid gap-5 overflow-y-auto overscroll-contain px-4 py-4">
             <Choice legend="Typ dania" name="type" options={types} value={f.type} label={t => t} onChange={v => setFilter("type", v)} />
             <Choice legend="Czas przygotowania" name="time" options={TIMES} value={f.maxTime} label={timeLabel} onChange={v => setFilter("maxTime", v)} />
             <Choice legend="Kategoria" name="cat" options={cats} value={f.cat} label={c => c || "Każda"} onChange={v => setFilter("cat", v)} />
-            <fieldset class="grid gap-1.5">
-              <legend class="mb-2 font-bold">Pokaż</legend>
+            <fieldset className="grid gap-1.5">
+              <legend className="mb-2 font-bold">Pokaż</legend>
               <Toggle label="Mogę zrobić teraz" hint="Najpierw dania, do których brakuje najmniej składników" checked={f.can} onChange={v => setFilter("can", v)} />
               <Toggle label="Jeszcze nie robione" checked={f.todo} onChange={v => setFilter("todo", v)} />
               <Toggle label="Z archiwum" hint="Także przepisy oznaczone jako archiwalne" checked={f.arch} onChange={v => setFilter("arch", v)} />
             </fieldset>
           </div>
-          <div class="border-t border-line px-4 pt-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}>
-            <button class="btn primary w-full" onClick={close}>Pokaż {count} {plural(count, "przepis", "przepisy", "przepisów")}</button>
+          <div className="border-t border-line px-4 pt-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}>
+            <button className="btn primary w-full" onClick={close}>Pokaż {count} {plural(count, "przepis", "przepisy", "przepisów")}</button>
           </div>
         </div>
       )}

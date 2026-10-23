@@ -1,0 +1,326 @@
+// Obiadki database. Tables are snake_case in Postgres, models are PascalCase in code.
+// Contexts: identity (Better Auth tables), households, catalog (global recipes, admin-edited), kitchen (per household).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/**
+ * ---------- identity: Better Auth core + admin plugin fields ----------
+ */
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false) @map("email_verified")
+  image         String?
+  role          String    @default("user") // "user" | "admin"
+  banned        Boolean   @default(false)
+  banReason     String?   @map("ban_reason")
+  banExpires    DateTime? @map("ban_expires")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  sessions       Session[]
+  accounts       Account[]
+  membership     HouseholdMember? // a user is in at most one household
+  invitesCreated HouseholdInvite[]
+  recipesCreated Recipe[]
+
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  token          String   @unique
+  expiresAt      DateTime @map("expires_at")
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  impersonatedBy String?  @map("impersonated_by")
+  userId         String   @map("user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+/**
+ * ---------- households ----------
+ */
+
+enum MemberRole {
+  owner
+  member
+
+  @@map("member_role")
+}
+
+model Household {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  members     HouseholdMember[]
+  invites     HouseholdInvite[]
+  recipeState HouseholdRecipeState[]
+  pantry      PantryItem[]
+  plan        PlanEntry[]
+  extras      ShoppingExtra[]
+
+  @@map("household")
+}
+
+model HouseholdMember {
+  householdId String     @map("household_id") @db.Uuid
+  userId      String     @unique @map("user_id")
+  role        MemberRole @default(member)
+  joinedAt    DateTime   @default(now()) @map("joined_at")
+  household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([householdId, userId])
+  @@map("household_member")
+}
+
+model HouseholdInvite {
+  code        String    @id
+  householdId String    @map("household_id") @db.Uuid
+  createdById String    @map("created_by_id")
+  expiresAt   DateTime  @map("expires_at")
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("household_invite")
+}
+
+/**
+ * ---------- catalog: global, edited by admins ----------
+ */
+
+enum Difficulty {
+  easy
+  medium
+  hard
+
+  @@map("difficulty")
+}
+
+/// Store section ("Dział"), e.g. "Warzywa i owoce"; orders the shopping list.
+model Department {
+  id          Int          @id @default(autoincrement()) @db.SmallInt
+  name        String       @unique
+  sortOrder   Int          @map("sort_order") @db.SmallInt
+  ingredients Ingredient[]
+
+  @@map("department")
+}
+
+/// A product, shared by recipes and every household's pantry. `nameNorm` is the trimmed, lower-case name.
+model Ingredient {
+  id           Int        @id @default(autoincrement())
+  name         String     @unique
+  nameNorm     String     @unique @map("name_norm")
+  departmentId Int        @map("department_id") @db.SmallInt
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  recipes RecipeIngredient[]
+  pantry  PantryItem[]
+
+  @@index([departmentId])
+  @@map("ingredient")
+}
+
+/// "Typ", e.g. "Danie główne".
+model RecipeType {
+  id      Int      @id @default(autoincrement()) @db.SmallInt
+  name    String   @unique
+  recipes Recipe[]
+
+  @@map("recipe_type")
+}
+
+/// "Kategoria", e.g. "Makaron".
+model Category {
+  id      Int              @id @default(autoincrement()) @db.SmallInt
+  name    String           @unique
+  recipes RecipeCategory[]
+
+  @@map("category")
+}
+
+model Recipe {
+  id                  Int         @id @default(autoincrement())
+  legacyId            String?     @unique @map("legacy_id") // sheet "ID", e.g. "r009"
+  name                String
+  typeId              Int         @map("type_id") @db.SmallInt
+  difficulty          Difficulty?
+  timeMin             Int?        @map("time_min")
+  description         String      @default("")
+  archived            Boolean     @default(false)
+  ingredientsVerified Boolean     @default(false) @map("ingredients_verified")
+  createdById         String?     @map("created_by_id")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+  type                RecipeType  @relation(fields: [typeId], references: [id])
+  createdBy           User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  categories  RecipeCategory[]
+  links       RecipeLink[]
+  steps       RecipeStep[]
+  ingredients RecipeIngredient[]
+  state       HouseholdRecipeState[]
+  plan        PlanEntry[]
+
+  @@index([typeId])
+  @@map("recipe")
+}
+
+model RecipeCategory {
+  recipeId   Int      @map("recipe_id")
+  categoryId Int      @map("category_id") @db.SmallInt
+  recipe     Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, categoryId])
+  @@index([categoryId])
+  @@map("recipe_category")
+}
+
+model RecipeLink {
+  recipeId Int    @map("recipe_id")
+  position Int    @db.SmallInt
+  url      String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, position])
+  @@map("recipe_link")
+}
+
+model RecipeStep {
+  recipeId Int    @map("recipe_id")
+  position Int    @db.SmallInt
+  text     String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, position])
+  @@map("recipe_step")
+}
+
+/// `qtyText` is the amount as written ("200 g", "40 g + 2 łyżki", "do smaku"); parsed by `parseQty` in model.ts.
+model RecipeIngredient {
+  recipeId     Int        @map("recipe_id")
+  position     Int        @db.SmallInt
+  ingredientId Int        @map("ingredient_id")
+  qtyText      String?    @map("qty_text")
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@id([recipeId, position])
+  @@index([ingredientId])
+  @@map("recipe_ingredient")
+}
+
+/**
+ * ---------- kitchen: per household ----------
+ */
+
+/// "Było robione", "Ocena", "Notatki": a household's own notes on a global recipe.
+model HouseholdRecipeState {
+  householdId String    @map("household_id") @db.Uuid
+  recipeId    Int       @map("recipe_id")
+  done        Boolean   @default(false)
+  rating      Int?      @db.SmallInt // 1..5, CHECK in the migration
+  notes       String    @default("")
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipe      Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@id([householdId, recipeId])
+  @@index([recipeId])
+  @@map("household_recipe_state")
+}
+
+/// "Spiżarnia": `have` = "Mam", `always` = "Zawsze mam" (never counts as missing).
+model PantryItem {
+  householdId  String     @map("household_id") @db.Uuid
+  ingredientId Int        @map("ingredient_id")
+  have         Boolean    @default(false)
+  always       Boolean    @default(false)
+  household    Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@id([householdId, ingredientId])
+  @@index([ingredientId])
+  @@map("pantry_item")
+}
+
+/// "Do ugotowania": a recipe or a free-text dish. The id is generated on the client so offline writes can refer to it.
+model PlanEntry {
+  id          String    @id @db.Uuid
+  householdId String    @map("household_id") @db.Uuid
+  recipeId    Int?      @map("recipe_id")
+  text        String?
+  meal        String    @default("")
+  plannedOn   DateTime? @map("planned_on") @db.Date
+  cooked      Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipe      Recipe?   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([recipeId])
+  @@map("plan_entry")
+}
+
+/// "Zakupy extra": items added to the shopping list by hand. Client-generated id, as for PlanEntry.
+model ShoppingExtra {
+  id          String    @id @db.Uuid
+  householdId String    @map("household_id") @db.Uuid
+  item        String
+  bought      Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("shopping_extra")
+}

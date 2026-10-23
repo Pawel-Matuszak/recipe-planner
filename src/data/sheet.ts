@@ -1,15 +1,15 @@
-// Hooks the components use: the model, writes, sync status and connection changes.
-import { useIsMutating, useMutation, useMutationState, useQuery, type QueryClient } from "@tanstack/preact-query";
+// Hooks the components use: the model, writes, sync status and switching the data source.
+import { useIsMutating, useMutation, useMutationState, useQuery, type QueryClient } from "@tanstack/react-query";
 import type { Action } from "../actions";
-import { buildModel, type Model, type Recipe, type Tables } from "../model";
+import { buildModel, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
-import { backendFor, config, DEMO_URL, errorMessage, setConfig, type Config } from "./backend";
-import { persister, resumeWrites, SHEET, tablesKey } from "./queryClient";
+import { config, DEMO_URL, errorMessage, SERVER_URL, setConfig } from "./backend";
+import { persister, resumeWrites, SHEET, stateKey } from "./queryClient";
 import { store } from "./storage";
 
 export function useSheet() {
   const c = config.value;
-  return useQuery({ queryKey: tablesKey(c?.url ?? ""), enabled: !!c, select: buildModel });
+  return useQuery({ queryKey: c ? stateKey(c) : ["all", "", ""], enabled: !!c, select: buildModel });
 }
 
 /** The current model, or null while nothing is loaded yet. */
@@ -20,7 +20,7 @@ export function useRecipe(id: string | null): Recipe | undefined {
   return id ? m?.recipes.find(r => r.id === id) : undefined;
 }
 
-/** Optimistic write: shows up immediately, survives reloads, reaches the sheet when it can. */
+/** Optimistic write: shows up immediately, survives reloads, reaches the server when it can. */
 export function useAct() {
   const { mutate } = useMutation<void, Error, Action>({ mutationKey: SHEET });
   return mutate;
@@ -47,7 +47,7 @@ export function useSyncStatus(): SyncStatus {
   else if (q.isSuccess) kind = "ok";
   const writeError = writeErrors.find(Boolean);
   const message = q.isError && !q.isFetching
-    ? errorMessage(q.error, "Nie udało się połączyć z arkuszem.")
+    ? errorMessage(q.error, "Nie udało się pobrać danych.")
     : writeError ? errorMessage(writeError, "") : "";
   return { kind, hasData, demo: c?.url === DEMO_URL, pending, message };
 }
@@ -57,39 +57,33 @@ export async function refresh(qc: QueryClient, manual: boolean) {
   if (!c) return;
   void qc.resumePausedMutations();
   void resumeWrites(qc);
-  await qc.refetchQueries({ queryKey: tablesKey(c.url) });
-  if (manual && qc.getQueryState(tablesKey(c.url))?.status === "success") toast("Odświeżono z arkusza");
+  await qc.refetchQueries({ queryKey: stateKey(c) });
+  if (manual && qc.getQueryState(stateKey(c))?.status === "success") toast("Odświeżono");
 }
 
-/** Drops everything tied to the previous sheet (cached data and unsent writes). */
+/** Drops everything tied to the previous data source (cached data and unsent writes). */
 function resetData(qc: QueryClient) {
   qc.getMutationCache().clear();
   qc.clear();
 }
 
-/** Validates the connection by loading the sheet, then switches to it. Throws a user-facing message on failure. */
-export async function connect(qc: QueryClient, c: Config) {
-  let t: Tables;
-  try {
-    t = await backendFor(c).all();
-    buildModel(t); // throws on a malformed payload
-  } catch (e) {
-    throw new Error(errorMessage(e, "Nie udało się połączyć. Sprawdź adres i token."));
-  }
-  if (config.value?.url !== c.url) resetData(qc);
-  setConfig(c);
-  qc.setQueryData(tablesKey(c.url), t);
+/** Switches to the signed-in user's household. Keeps cached data and queued writes when it is the same household. */
+export function connectServer(qc: QueryClient, household: string) {
+  const c = config.value;
+  if (c?.url === SERVER_URL && c.household === household) return void refresh(qc, false);
+  resetData(qc);
+  setConfig({ url: SERVER_URL, household });
 }
 
 export function connectDemo(qc: QueryClient) {
   if (config.value?.url !== DEMO_URL) resetData(qc);
-  setConfig({ url: DEMO_URL, token: "" });
+  setConfig({ url: DEMO_URL });
 }
 
+/** Forgets the data source and everything stored on the phone (after signing out or leaving the household). */
 export function forget(qc: QueryClient) {
   resetData(qc);
   void persister.removeClient();
   store.clear();
   setConfig(null);
 }
-

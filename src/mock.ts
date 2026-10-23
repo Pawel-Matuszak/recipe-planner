@@ -1,5 +1,6 @@
-// Example data for demo mode (`npm run dev:mock`, or "Wypróbuj na przykładowych danych" in Settings).
-import { iso, type Tables } from "./model";
+// Example data for demo mode (`npm run dev:mock`, or "Wypróbuj na przykładowych danych" in Settings), the database seed and tests.
+// Written as spreadsheet rows, like the sheet the app started from.
+import { iso, parseSheet, toState, type State, type Tables } from "./model";
 
 const H = ["Obrazek", "Nazwa", "Typ", "Trudność", "Było robione?", "Link", "Kategoria 1", "Kateogria 2", "Archived", "ID", "Czas (min)", "Składniki", "Składniki sprawdzone", "Ocena", "Notatki", "Opis", "Przepis"];
 const r = (id: string, name: string, typ: string, diff: string, done: boolean, link: string, k1: string, k2: string, czas: number, ing: string, rate = "", opis = "", przepis = "") =>
@@ -49,3 +50,6 @@ export function demoTables(): Tables {
     extra: [["Pozycja", "Kupione"], ["papier do pieczenia", "FALSE"]],
   };
 }
+
+/** The demo data as the app sees it. The demo user is an admin, so recipe editing can be tried too. */
+export const demoState = (): State => toState(parseSheet(demoTables(), { name: "Demo", role: "admin" }));
