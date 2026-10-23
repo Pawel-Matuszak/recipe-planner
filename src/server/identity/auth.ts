@@ -8,9 +8,11 @@ import { getDb } from "../db";
 
 const DAY = 60 * 60 * 24;
 
-// On Vercel previews, also accept the deployment's own URL and its branch alias (system env vars set by Vercel),
-// so BETTER_AUTH_URL can name one of them and sign-in still works from the other.
-const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL].filter(Boolean).map(h => `https://${h}`);
+// On Vercel the app's URLs come from Vercel's system env vars: the deployment's own URL, its branch alias and,
+// in production, the production domain (used as the base URL). BETTER_AUTH_URL is only needed elsewhere (locally).
+const { VERCEL_ENV, VERCEL_URL, VERCEL_BRANCH_URL, VERCEL_PROJECT_PRODUCTION_URL } = process.env;
+const vercelOrigins = [VERCEL_URL, VERCEL_BRANCH_URL, VERCEL_ENV === "production" ? VERCEL_PROJECT_PRODUCTION_URL : undefined]
+  .filter(Boolean).map(h => `https://${h}`);
 
 function createAuth() {
   return betterAuth({

@@ -80,7 +80,7 @@ Environment (`.env.local`, see `.env.example`):
 - `DIRECT_URL`: used by migrations; on Neon the **unpooled** connection string.
 - `TEST_DATABASE_URL`: the local test database; the db tests refuse to run against anything that isn't local.
 - `BETTER_AUTH_SECRET`: random secret that signs session cookies (32+ characters, different per environment).
-- `BETTER_AUTH_URL`: the app's public URL (`http://localhost:3000` locally).
+- `BETTER_AUTH_URL`: the app's URL, only outside Vercel (`http://localhost:3000` locally); on Vercel it comes from Vercel's system variables.
 
 The seed also refuses to run against a non-local database unless `SEED_ALLOW_REMOTE=1` (it wipes the database first).
 
