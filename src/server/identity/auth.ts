@@ -8,8 +8,14 @@ import { getDb } from "../db";
 
 const DAY = 60 * 60 * 24;
 
+// On Vercel previews, also accept the deployment's own URL and its branch alias (system env vars set by Vercel),
+// so BETTER_AUTH_URL can name one of them and sign-in still works from the other.
+const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL].filter(Boolean).map(h => `https://${h}`);
+
 function createAuth() {
   return betterAuth({
+    baseURL: process.env.BETTER_AUTH_URL ?? vercelOrigins.at(-1),
+    trustedOrigins: vercelOrigins,
     database: prismaAdapter(getDb(), { provider: "postgresql" }),
     emailAndPassword: { enabled: true, minPasswordLength: 8, autoSignIn: true },
     // the app works offline for long stretches, so sessions are long and renew themselves while in use
