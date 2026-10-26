@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSheet, filterRecipes, missingOf, parseDate, parseIng, plural, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
+import { parseSheet, filterRecipes, missingOf, parseDate, ingLines, parseIng, parseIngList, plural, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
 
 const MAIN_HEADER = ["Obrazek", "Nazwa", "Typ", "Trudność", "Było robione?", "Link", "Kategoria 1", "Kateogria 2", "Archived", "ID", "Czas (min)", "Składniki", "Składniki sprawdzone", "Ocena", "Notatki", "Opis", "Przepis"];
 const recipe = (id: string, name: string, ing: string, extra: Partial<Record<string, string>> = {}) => {
@@ -179,6 +179,41 @@ describe("ingredient amounts", () => {
     expect(sum("30 g", "40 g + 2 łyżki")).toBe("70 g + 2 łyżki");
     expect(sumQty([null, parseIng("x: 100 g").qty])).toBe("100 g");
     expect(sumQty([null])).toBe("");
+  });
+});
+
+describe("ingredient list with sections and notes", () => {
+  const BURRITO = [
+    "ser: 100 g",
+    "# Mięso",
+    "wołowina mielona: 900 g",
+    "przyprawa do taco: 1 opakowanie (lub ok. 2 łyżki domowej mieszanki: chili, kmin rzymski)",
+    "#Sos",
+    "czosnek w proszku: 1/2 łyżeczki",
+    "sól",
+  ];
+
+  it("reads section headers and a note in brackets after the amount", () => {
+    const ing = parseIngList(BURRITO.join("; "));
+    expect(ing.map(i => [i.sec, i.name])).toEqual([
+      [undefined, "ser"], ["Mięso", "wołowina mielona"], ["Mięso", "przyprawa do taco"], ["Sos", "czosnek w proszku"], ["Sos", "sól"],
+    ]);
+    expect(ing[2]).toMatchObject({ qty: { value: 1, unit: "opak", raw: "1 opakowanie" }, note: "lub ok. 2 łyżki domowej mieszanki: chili, kmin rzymski" });
+    expect(ing[0]).toEqual({ name: "ser", qty: { value: 100, unit: "g", raw: "100 g" } });
+  });
+
+  it("keeps brackets without an amount in the name", () => {
+    expect(parseIngList("pomidory (z puszki)")).toEqual([{ name: "pomidory (z puszki)", qty: null }]);
+    expect(parseIngList("ryż (basmati): 200 g")[0]).toMatchObject({ name: "ryż (basmati)", qty: { raw: "200 g" } });
+    expect(parseIngList("ryż: (najlepiej basmati)")[0]).toEqual({ name: "ryż", qty: null, note: "najlepiej basmati" });
+  });
+
+  it("writes the list back as editor lines", () => {
+    expect(ingLines(parseIngList(BURRITO.join("; ")))).toEqual(BURRITO.map(l => l.replace("#Sos", "# Sos")));
+  });
+
+  it("drops empty sections and lines without a name", () => {
+    expect(parseIngList("# Sos; # Podanie; tortille: 8; : 2 g")).toEqual([{ name: "tortille", qty: { value: 8, unit: "szt", raw: "8" }, sec: "Podanie" }]);
   });
 });
 

@@ -4,7 +4,7 @@ import { DIFFICULTIES, type Action } from "../actions";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { DZIALY, ingState, isAdmin, newId, norm, parseIng, similarIngredients, splitIng, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
+import { DZIALY, ingLines, ingState, isAdmin, newId, norm, parseIngList, similarIngredients, suggestIngredient, sumQty, type Ing, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { newRecipe, openRecipe, randomMode } from "../state/ui";
 import { MissBadge } from "./common";
@@ -29,7 +29,7 @@ const FIELD_CLS = "w-full resize-y rounded-[10px] border border-line bg-surface 
 const lines = (s: string) => s.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 // textareas grow with their content so the whole recipe is visible without inner scrolling
 const rowsFor = (s: string, min: number) => Math.max(min, s.split("\n").length + 1);
-const ingText = (r: Recipe) => r.ing.map(i => (i.qty ? `${i.name}: ${i.qty.raw}` : i.name)).join("\n");
+const ingText = (r: Recipe) => ingLines(r.ing).join("\n");
 
 /** Names in the ingredient field that aren't in the pantry: swap one for a close pantry name or add it as a new product. */
 function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setText: (s: string) => void }) {
@@ -37,15 +37,15 @@ function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setT
   const act = useAct();
   const [fresh, setFresh] = useState<string[]>([]); // marked "To nowy składnik", so no more suggestion
   const [dzial, setDzial] = useState<Record<string, string>>({});
-  const all = splitIng(lines(text).join("; ")).map(i => parseIng(i).name);
+  const all = parseIngList(lines(text).join("; ")).map(i => i.name);
   const names = [...new Map(all.map(n => [norm(n), n])).values()].filter(n => !m.pantry.has(norm(n)));
   if (!names.length) return null;
 
-  // keeps the amount and the separators around the name as they were
+  // keeps the amount, the note and the separators around the name as they were
   const swap = (from: string, to: string) => setText(text.split("\n").map(l => l.split(";").map(part => {
-    if (norm(parseIng(part).name) !== norm(from)) return part;
-    const c = part.lastIndexOf(":");
-    return part.match(/^\s*/)![0] + to + (c < 0 ? "" : part.slice(c));
+    const name = parseIngList(part)[0]?.name;
+    if (name === undefined || norm(name) !== norm(from)) return part;
+    return part.match(/^\s*/)![0] + to + part.trimStart().slice(name.length);
   }).join(";")).join("\n"));
   const add = (n: string) => {
     act({ action: "addPantry", name: n, dzial: dzial[norm(n)] ?? "Inne", have: false });
@@ -174,7 +174,7 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
       </div>
       <div className="section">
         <h3><label htmlFor="ed-ing">Składniki</label></h3>
-        <p className="text-[.85rem] text-muted">Jeden w linii, ilość po dwukropku, np. „makaron: 200 g”.</p>
+        <p className="text-[.85rem] text-muted">Jeden w linii, ilość po dwukropku, np. „makaron: 200 g”. Linia „# Sos” zaczyna sekcję, a uwagę dopisz w nawiasie na końcu, np. „przyprawa: 1 opak. (lub domowa mieszanka)”.</p>
         <textarea id="ed-ing" className={FIELD_CLS} rows={rowsFor(ing, 5)} value={ing} onChange={e => setIng(e.currentTarget.value)} />
         <form className="row mt-2" onSubmit={e => { e.preventDefault(); if (next.trim()) { setIng([...lines(ing), next.trim()].join("\n")); setNext(""); } }}>
           <input className="field flex-1" list="pantry-names" aria-label="Nowy składnik" placeholder="np. masło: 50 g" autoComplete="off"
@@ -225,7 +225,13 @@ export function RecipeSheet() {
   const act = useAct();
   const [editing, setEditing] = useState<string | null>(null); // id of the recipe being edited
   if (!r || !m) return null;
-  const ings = r.ing.map(i => ({ i, st: ingState(m, i.name) })).sort((a, b) => ORDER[a.st] - ORDER[b.st]);
+  // sections in recipe order; within each, what's missing first
+  const groups: { sec?: string; ings: { i: Ing; k: number; st: IngState }[] }[] = [];
+  r.ing.forEach((i, k) => {
+    if (!groups.length || groups.at(-1)!.sec !== i.sec) groups.push({ sec: i.sec, ings: [] });
+    groups.at(-1)!.ings.push({ i, k, st: ingState(m, i.name) });
+  });
+  for (const g of groups) g.ings.sort((a, b) => ORDER[a.st] - ORDER[b.st]);
   const setField = (f: Pick<Extract<Action, { action: "setRecipeField" }>, "field" | "value">) =>
     act({ action: "setRecipeField", recipeId: r.id, ...f } as Action);
   const close = () => { openRecipe.value = null; randomMode.value = false; setEditing(null); };
@@ -273,18 +279,24 @@ export function RecipeSheet() {
       <div className="section">
         <h3>Składniki{r.ing.length ? ` · ${r.ing.length}` : ""}</h3>
         {r.ing.length
-          ? ings.map(({ i, st }) => (
-            <button key={i.name} className="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
-              onClick={() => act({ action: "setPantry", name: i.name, have: st === "miss" })}>
-              <span className={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
-              <span className="min-w-0 flex-1">{i.name}
-                {st === "always" && <span className="block text-[.75rem] text-muted">zawsze mam</span>}
-                {!m.pantry.has(norm(i.name)) && <span className="block text-[.75rem] text-paprika">poza bazą{isAdmin(m) ? ", popraw w „Edytuj”" : ""}</span>}
-              </span>
-              {i.qty && <span className="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
-            </button>
+          ? groups.map(g => (
+            <div key={g.ings[0].k} className="grid gap-2">
+              {g.sec && <h4 className="mt-2 text-[.8rem] font-bold uppercase text-muted">{g.sec}</h4>}
+              {g.ings.map(({ i, k, st }) => (
+                <button key={k} className="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
+                  onClick={() => act({ action: "setPantry", name: i.name, have: st === "miss" })}>
+                  <span className={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
+                  <span className="min-w-0 flex-1">{i.name}
+                    {i.note && <span className="block text-[.8rem] text-muted">{i.note}</span>}
+                    {st === "always" && <span className="block text-[.75rem] text-muted">zawsze mam</span>}
+                    {!m.pantry.has(norm(i.name)) && <span className="block text-[.75rem] text-paprika">poza bazą{isAdmin(m) ? ", popraw w „Edytuj”" : ""}</span>}
+                  </span>
+                  {i.qty && <span className="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
+                </button>
+              ))}
+            </div>
           ))
-          : <div className="empty">Brak listy składników. Dodaj je przyciskiem „Edytuj” na górze.</div>}
+          :<div className="empty">Brak listy składników. Dodaj je przyciskiem „Edytuj” na górze.</div>}
       </div>
 
       {r.steps.length > 0 && (

@@ -62,6 +62,21 @@ describe("App with demo data", () => {
     expect(screen.queryByText(/poza bazą/)).toBeNull();
   });
 
+  it("shows ingredient sections and notes", async () => {
+    renderApp();
+    fireEvent.click(await screen.findByText("Leczo"));
+    fireEvent.click(await screen.findByText("Edytuj"));
+    const field = screen.getByLabelText("Składniki") as HTMLTextAreaElement;
+    fireEvent.input(field, { target: { value: "cebula: 2\n# Sos\npomidor: 4 (lub passata: 500 ml)" } });
+    fireEvent.click(await screen.findByText("Zamień na „pomidory”"));
+    expect(field.value).toBe("cebula: 2\n# Sos\npomidory: 4 (lub passata: 500 ml)");
+    fireEvent.click(screen.getByText("Zapisz"));
+    expect(await screen.findByText("Sos")).toBeTruthy();
+    expect(screen.getByText("lub passata: 500 ml")).toBeTruthy();
+    fireEvent.click(screen.getByText("Edytuj"));
+    expect((screen.getByLabelText("Składniki") as HTMLTextAreaElement).value).toBe("cebula: 2\n# Sos\npomidory: 4 (lub passata: 500 ml)");
+  });
+
   it("renders every tab", async () => {
     renderApp();
     await screen.findByText("Carbonara");

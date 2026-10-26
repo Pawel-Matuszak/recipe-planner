@@ -34,6 +34,14 @@ describe("applyAction", () => {
     expect(s.pantry.find(p => p.name === "szafran")).toMatchObject({ dzial: "Inne", have: false });
   });
 
+  it("keeps ingredient sections and notes", () => {
+    const s = demoState();
+    applyAction(s, { action: "editRecipe", recipeId: "r002", ing: "Papryka: 2; # Sos; cebula: 1 (lub szalotka: 2)" });
+    expect(s.recipes.find(x => x.id === "r002")!.ing).toEqual([
+      { name: "papryka", qty: "2" }, { name: "cebula", qty: "1", sec: "Sos", note: "lub szalotka: 2" },
+    ]);
+  });
+
   it("leaves ingredients unchecked when only steps are edited", () => {
     const s = demoState();
     applyAction(s, { action: "editRecipe", recipeId: "r002", steps: "Jedyny krok" });

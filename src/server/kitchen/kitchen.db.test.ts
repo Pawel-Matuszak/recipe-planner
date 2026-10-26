@@ -136,7 +136,7 @@ describe("POST /api/actions", () => {
 
   it("lets only admins edit recipes and delete products", async () => {
     const s = await getState();
-    const edit = { action: "editRecipe", recipeId: recipeId(s, "Leczo"), steps: "Jeden krok", ing: "Cukinia: 2; kiełbasa: 300 g; nowość" };
+    const edit = { action: "editRecipe", recipeId: recipeId(s, "Leczo"), steps: "Jeden krok", ing: "Cukinia: 2; # Na wierzch; kiełbasa: 300 g (lub boczek); nowość" };
     expect((await send(edit)).json).toMatchObject({ error: "forbidden" });
     expect((await send({ action: "removePantry", name: "sól" })).status).toBe(403);
 

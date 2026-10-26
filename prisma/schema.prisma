@@ -254,6 +254,8 @@ model RecipeIngredient {
   position     Int        @db.SmallInt
   ingredientId Int        @map("ingredient_id")
   qtyText      String?    @map("qty_text")
+  section      String? // "Sos": the part of the recipe it's for; consecutive rows share it
+  note         String? // e.g. an alternative: "lub domowa mieszanka: chili, kmin"
   recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
 
