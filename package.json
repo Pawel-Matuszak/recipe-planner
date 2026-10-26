@@ -8,7 +8,7 @@
     "dev": "next dev",
     "dev:local": "cross-env DATABASE_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki DIRECT_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki next dev",
     "dev:mock": "cross-env NEXT_PUBLIC_DEMO=1 next dev",
-    "build": "next build",
+    "build": "prisma migrate deploy && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
