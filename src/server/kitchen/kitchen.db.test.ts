@@ -123,7 +123,7 @@ describe("POST /api/actions", () => {
     }
     const after = await getState();
     expect(canonical(after)).toEqual(canonical(expected));
-    expect(after.recipes.find(r => r.id === fresh)).toMatchObject({ name: "Kasza z warzywami", rate: 5, ver: true, steps: ["Jeden krok"] });
+    expect(after.recipes.find(r => r.id === fresh)).toMatchObject({ name: "Kasza z warzywami", rate: 5, ver: true, steps: [{ text: "Jeden krok" }] });
     expect(after.plan.some(p => p.id === fresh)).toBe(true);
   });
 
@@ -136,7 +136,7 @@ describe("POST /api/actions", () => {
 
   it("lets only admins edit recipes and delete products", async () => {
     const s = await getState();
-    const edit = { action: "editRecipe", recipeId: recipeId(s, "Leczo"), steps: "Jeden krok", ing: "Cukinia: 2; # Na wierzch; kiełbasa: 300 g (lub boczek); nowość" };
+    const edit = { action: "editRecipe", recipeId: recipeId(s, "Leczo"), steps: "Jeden krok\n# Na koniec\n1. Posyp", ing: "Cukinia: 2; # Na wierzch; kiełbasa: 300 g (lub boczek); nowość" };
     expect((await send(edit)).json).toMatchObject({ error: "forbidden" });
     expect((await send({ action: "removePantry", name: "sól" })).status).toBe(403);
 

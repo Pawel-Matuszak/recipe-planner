@@ -4,7 +4,7 @@ import { DIFFICULTIES, type Action } from "../actions";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { DZIALY, ingLines, ingState, isAdmin, newId, norm, parseIngList, similarIngredients, suggestIngredient, sumQty, type Ing, type IngState, type Model, type Recipe } from "../model";
+import { DZIALY, ingLines, ingState, isAdmin, newId, norm, parseIngList, similarIngredients, stepLines, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { newRecipe, openRecipe, randomMode } from "../state/ui";
 import { MissBadge } from "./common";
@@ -12,6 +12,17 @@ import { useQueueAdd } from "./PlanView";
 
 const ORDER: Record<IngState, number> = { miss: 0, have: 1, always: 2 };
 const MARK: Record<IngState, string> = { miss: "bg-paprika-soft text-paprika", have: "bg-basil-soft text-basil", always: "bg-line text-muted" };
+const SEC_CLS = "mt-2 text-[.8rem] font-bold uppercase text-muted";
+
+/** Consecutive items of the same section ("# Sos" in the editor), in order. */
+function bySection<T extends { sec?: string }>(xs: T[]): { sec?: string; items: T[] }[] {
+  const groups: { sec?: string; items: T[] }[] = [];
+  for (const x of xs) {
+    if (!groups.length || groups.at(-1)!.sec !== x.sec) groups.push({ sec: x.sec, items: [] });
+    groups.at(-1)!.items.push(x);
+  }
+  return groups;
+}
 
 function QueueIt({ m, r }: { m: Model; r: Recipe }) {
   useSignals();
@@ -109,7 +120,7 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
   const [links, setLinks] = useState(base.links.join("\n"));
   const [arch, setArch] = useState(base.arch);
   const [desc, setDesc] = useState(base.desc);
-  const [steps, setSteps] = useState(base.steps.join("\n"));
+  const [steps, setSteps] = useState(stepLines(base.steps).join("\n"));
   const [ing, setIng] = useState(ingText(base));
   const [next, setNext] = useState(""); // "add ingredient" box with pantry names as suggestions
   const types = [...new Set([...m.recipes.map(x => x.type), "Danie główne"])].sort((a, b) => a.localeCompare(b, "pl"));
@@ -186,7 +197,7 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
       </div>
       <div className="section">
         <h3><label htmlFor="ed-steps">Kroki</label></h3>
-        <p className="text-[.85rem] text-muted">Jeden krok w linii.</p>
+        <p className="text-[.85rem] text-muted">Jeden krok w linii, bez numerów. Linia „# Sos” zaczyna sekcję, numeracja liczy się w niej od 1.</p>
         <textarea id="ed-steps" className={FIELD_CLS} rows={rowsFor(steps, 6)} value={steps} onChange={e => setSteps(e.currentTarget.value)} />
       </div>
       <label className="mt-[18px] flex items-center gap-2.5 font-bold">
@@ -225,13 +236,9 @@ export function RecipeSheet() {
   const act = useAct();
   const [editing, setEditing] = useState<string | null>(null); // id of the recipe being edited
   if (!r || !m) return null;
-  // sections in recipe order; within each, what's missing first
-  const groups: { sec?: string; ings: { i: Ing; k: number; st: IngState }[] }[] = [];
-  r.ing.forEach((i, k) => {
-    if (!groups.length || groups.at(-1)!.sec !== i.sec) groups.push({ sec: i.sec, ings: [] });
-    groups.at(-1)!.ings.push({ i, k, st: ingState(m, i.name) });
-  });
-  for (const g of groups) g.ings.sort((a, b) => ORDER[a.st] - ORDER[b.st]);
+  // ingredients by section in recipe order; within each, what's missing first
+  const groups = bySection(r.ing.map((i, k) => ({ i, k, st: ingState(m, i.name), sec: i.sec })));
+  for (const g of groups) g.items.sort((a, b) => ORDER[a.st] - ORDER[b.st]);
   const setField = (f: Pick<Extract<Action, { action: "setRecipeField" }>, "field" | "value">) =>
     act({ action: "setRecipeField", recipeId: r.id, ...f } as Action);
   const close = () => { openRecipe.value = null; randomMode.value = false; setEditing(null); };
@@ -280,9 +287,9 @@ export function RecipeSheet() {
         <h3>Składniki{r.ing.length ? ` · ${r.ing.length}` : ""}</h3>
         {r.ing.length
           ? groups.map(g => (
-            <div key={g.ings[0].k} className="grid gap-2">
-              {g.sec && <h4 className="mt-2 text-[.8rem] font-bold uppercase text-muted">{g.sec}</h4>}
-              {g.ings.map(({ i, k, st }) => (
+            <div key={g.items[0].k} className="grid gap-2">
+              {g.sec && <h4 className={SEC_CLS}>{g.sec}</h4>}
+              {g.items.map(({ i, k, st }) => (
                 <button key={k} className="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 text-left" disabled={st === "always"} aria-pressed={st !== "miss"}
                   onClick={() => act({ action: "setPantry", name: i.name, have: st === "miss" })}>
                   <span className={`grid size-6 flex-none place-items-center rounded-full text-[.85rem] font-extrabold ${MARK[st]}`}>{st === "miss" ? "✕" : "✓"}</span>
@@ -302,14 +309,19 @@ export function RecipeSheet() {
       {r.steps.length > 0 && (
         <div className="section">
           <h3>Przepis</h3>
-          <ol className="grid gap-2.5">
-            {r.steps.map((s, k) => (
-              <li key={k} className="flex gap-2.5">
-                <span className="grid size-6 flex-none place-items-center rounded-full bg-line text-[.85rem] font-extrabold">{k + 1}</span>
-                <span className="min-w-0 flex-1 pt-0.5">{s}</span>
-              </li>
-            ))}
-          </ol>
+          {bySection(r.steps).map((g, gk) => (
+            <div key={gk} className="grid gap-2.5">
+              {g.sec && <h4 className={SEC_CLS}>{g.sec}</h4>}
+              <ol className="grid gap-2.5">
+                {g.items.map((s, k) => (
+                  <li key={k} className="flex gap-2.5">
+                    <span className="grid size-6 flex-none place-items-center rounded-full bg-line text-[.85rem] font-extrabold">{k + 1}</span>
+                    <span className="min-w-0 flex-1 pt-0.5">{s.text}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
         </div>
       )}
 

@@ -1,7 +1,7 @@
 // Write actions shared by the client (optimistic update + sync queue), the demo backend and the server
 // (POST /api/actions validates with `ActionSchema`, then src/server/kitchen/actions.ts applies the same change in the database).
 import { z } from "zod";
-import { newId, norm, parseIngList, type State } from "./model";
+import { newId, norm, parseIngList, parseSteps, type State } from "./model";
 
 const name = z.string().trim().min(1).max(120);
 const uid = z.uuid();
@@ -89,7 +89,7 @@ export function applyAction(s: State, a: Action): void {
       if (a.links !== undefined) r.links = uniq(a.links);
       if (a.arch !== undefined) r.arch = a.arch;
       if (a.desc !== undefined) r.desc = a.desc.trim();
-      if (a.steps !== undefined) r.steps = a.steps.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      if (a.steps !== undefined) r.steps = parseSteps(a.steps);
       if (a.ing !== undefined) {
         r.ing = parseIngList(a.ing).map(i => ({ ...i, name: catalogName(s, i.name), qty: i.qty?.raw || null }));
         r.ver = true;

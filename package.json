@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Obiadki: mobilna apka do przepisów, spiżarni, planu i listy zakupów dla gospodarstw domowych.",
+  "engines": {
+    "node": ">=24.22.1 <25"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:local": "cross-env DATABASE_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki DIRECT_URL=postgresql://obiadki:obiadki@localhost:54322/obiadki next dev",
@@ -29,7 +32,7 @@
     "@serwist/turbopack": "9.5.13",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/react": "16.3.3",
-    "@types/node": "26.6.5",
+    "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -46,19 +49,19 @@
     "vitest": "5.0.5"
   },
   "dependencies": {
-    "@fontsource-variable/bricolage-grotesque": "5.3.0",
-    "@fontsource/atkinson-hyperlegible": "5.3.0",
-    "@preact/signals-react": "3.12.0",
-    "@prisma/adapter-pg": "7.10.1",
-    "@prisma/client": "7.10.1",
-    "@tanstack/query-sync-storage-persister": "5.104.5",
-    "@tanstack/react-query": "5.104.5",
-    "@tanstack/react-query-persist-client": "5.104.5",
-    "better-auth": "1.7.12",
-    "next": "16.4.2",
-    "pg": "8.23.1",
-    "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "zod": "4.6.7"
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@preact/signals-react": "^3.12.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "@tanstack/query-sync-storage-persister": "^5.104.5",
+    "@tanstack/react-query": "^5.104.5",
+    "@tanstack/react-query-persist-client": "^5.104.5",
+    "better-auth": "^1.7.12",
+    "next": "^16.4.2",
+    "pg": "^8.23.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7"
   }
 }

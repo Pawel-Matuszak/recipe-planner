@@ -33,7 +33,7 @@ export async function readState(db: Tx, householdId: string, user: SessionUser):
         id: publicId(r), name: r.name, type: r.type.name, diff: r.difficulty ? DIFFICULTY_LABEL[r.difficulty] : "",
         done: own?.done ?? false, arch: r.archived, links: r.links.map(l => l.url), cats: r.categories.map(c => c.category.name),
         time: r.timeMin ?? 0, ing: r.ingredients.map(i => ({ name: i.ingredient.name, qty: i.qtyText, ...(i.section && { sec: i.section }), ...(i.note && { note: i.note }) })), ver: r.ingredientsVerified,
-        rate: own?.rating ?? 0, notes: own?.notes ?? "", desc: r.description, steps: r.steps.map(s => s.text),
+        rate: own?.rating ?? 0, notes: own?.notes ?? "", desc: r.description, steps: r.steps.map(s => ({ text: s.text, ...(s.section && { sec: s.section }) })),
       };
     }),
     pantry: ingredients.map(i => ({ name: i.name, dzial: i.department.name, have: i.pantry[0]?.have ?? false, always: i.pantry[0]?.always ?? false })),

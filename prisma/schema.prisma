@@ -242,6 +242,7 @@ model RecipeStep {
   recipeId Int    @map("recipe_id")
   position Int    @db.SmallInt
   text     String
+  section  String? // "Sos": the part of the recipe it's for; consecutive steps share it
   recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@id([recipeId, position])

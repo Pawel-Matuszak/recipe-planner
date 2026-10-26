@@ -28,7 +28,7 @@ describe("applyAction", () => {
     applyAction(s, { action: "editRecipe", recipeId: "r002", desc: "Nowy opis", steps: "Krok 1\nKrok 2", ing: "Papryka: 2; cebula; szafran: szczypta" });
     const r = buildModel(s).recipes.find(x => x.id === "r002")!;
     expect(r.desc).toBe("Nowy opis");
-    expect(r.steps).toEqual(["Krok 1", "Krok 2"]);
+    expect(r.steps).toEqual([{ text: "Krok 1" }, { text: "Krok 2" }]);
     expect(r.ing.map(i => [i.name, i.qty?.raw ?? null])).toEqual([["papryka", "2"], ["cebula", null], ["szafran", "szczypta"]]);
     expect(r.ver).toBe(true);
     expect(s.pantry.find(p => p.name === "szafran")).toMatchObject({ dzial: "Inne", have: false });
@@ -46,7 +46,7 @@ describe("applyAction", () => {
     const s = demoState();
     applyAction(s, { action: "editRecipe", recipeId: "r002", steps: "Jedyny krok" });
     const r = s.recipes.find(x => x.id === "r002")!;
-    expect(r.steps).toEqual(["Jedyny krok"]);
+    expect(r.steps).toEqual([{ text: "Jedyny krok" }]);
     expect(r.ver).toBe(false);
   });
 
@@ -121,7 +121,7 @@ describe("admin catalog actions", () => {
     applyAction(s, { action: "createRecipe", recipeId: id, ...recipe, name: "Inna" });
     const r = buildModel(s).recipes.filter(x => x.id === id);
     expect(r).toHaveLength(1);
-    expect(r[0]).toMatchObject({ name: "Kasza", cats: ["Kasza"], ver: true, steps: ["Ugotuj"] });
+    expect(r[0]).toMatchObject({ name: "Kasza", cats: ["Kasza"], ver: true, steps: [{ text: "Ugotuj" }] });
     expect(r[0].ing.map(i => i.name)).toEqual(["Kasza bulgur", "cebula"]);
     expect(s.pantry.find(p => p.name === "Kasza bulgur")).toMatchObject({ dzial: "Inne", have: false });
   });

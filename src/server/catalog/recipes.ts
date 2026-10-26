@@ -1,7 +1,7 @@
 // Global recipes, edited by admins.
 import type { Action } from "../../actions";
 import type { Difficulty } from "../../generated/prisma/enums";
-import { parseIngList } from "../../model";
+import { parseIngList, parseSteps } from "../../model";
 import type { Tx } from "../db";
 import { DomainError } from "../errors";
 import { ensureIngredient } from "./ingredients";
@@ -63,9 +63,8 @@ export async function editRecipe(tx: Tx, recipeId: number, e: RecipeEdit): Promi
     await tx.recipeLink.createMany({ data: uniq(e.links).map((url, position) => ({ recipeId, position, url })) });
   }
   if (e.steps !== undefined) {
-    const steps = e.steps.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     await tx.recipeStep.deleteMany({ where: { recipeId } });
-    await tx.recipeStep.createMany({ data: steps.map((text, position) => ({ recipeId, position, text })) });
+    await tx.recipeStep.createMany({ data: parseSteps(e.steps).map((s, position) => ({ recipeId, position, text: s.text, section: s.sec ?? null })) });
   }
   if (e.ing !== undefined) {
     const rows = [];
