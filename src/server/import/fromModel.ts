@@ -47,8 +47,8 @@ export async function importModel(tx: Tx, m: Model, to: ImportTarget): Promise<I
         description: r.desc, archived: r.arch, ingredientsVerified: r.ver, createdById: to.createdById,
         categories: { create: [...new Set(r.cats)].map(c => ({ categoryId: catId.get(c)! })) },
         links: { create: r.links.map((url, position) => ({ position, url })) },
-        steps: { create: r.steps.map((text, position) => ({ position, text })) },
-        ingredients: { create: ing.map((i, position) => ({ position, ingredientId: ingId.get(norm(i.name))!, qtyText: i.qty?.raw ?? null })) },
+        steps: { create: r.steps.map((s, position) => ({ position, text: s.text, section: s.sec ?? null })) },
+        ingredients: { create: ing.map((i, position) => ({ position, ingredientId: ingId.get(norm(i.name))!, qtyText: i.qty?.raw ?? null, section: i.sec ?? null, note: i.note ?? null })) },
       },
     });
     recipeId.set(r.id, created.id);

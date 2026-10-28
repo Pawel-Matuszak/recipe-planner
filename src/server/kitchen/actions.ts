@@ -3,8 +3,8 @@
 // (a retry after a lost answer) without changing the result: new rows carry ids made on the phone.
 import { norm } from "../../model";
 import type { Action } from "../../actions";
-import { deleteIngredient, ensureIngredient, findIngredient } from "../catalog/ingredients";
-import { editRecipe, recipeIdOf } from "../catalog/recipes";
+import { deleteIngredient, editIngredient, ensureIngredient, findIngredient, mergeIngredients } from "../catalog/ingredients";
+import { createRecipe, editRecipe, recipeIdOf } from "../catalog/recipes";
 import type { Tx } from "../db";
 import { DomainError, forbidden } from "../errors";
 import type { SessionUser } from "../identity/auth";
@@ -34,9 +34,15 @@ export async function runAction(tx: Tx, ctx: Ctx, a: Action): Promise<void> {
       });
       return;
     }
+    case "createRecipe": {
+      requireAdmin(ctx);
+      const { action: _, recipeId, ...data } = a;
+      return createRecipe(tx, recipeId, data, ctx.user.id);
+    }
     case "editRecipe": {
       requireAdmin(ctx);
-      return editRecipe(tx, await recipeIdOf(tx, a.recipeId), a);
+      const { action: _, recipeId, ...edit } = a;
+      return editRecipe(tx, await recipeIdOf(tx, recipeId), edit);
     }
     case "setPantry":
       return setHave(tx, householdId, await ensureIngredient(tx, a.name), a.have);
@@ -49,6 +55,12 @@ export async function runAction(tx: Tx, ctx: Ctx, a: Action): Promise<void> {
     case "removePantry":
       requireAdmin(ctx);
       return deleteIngredient(tx, a.name);
+    case "editIngredient":
+      requireAdmin(ctx);
+      return editIngredient(tx, a.name, a);
+    case "mergeIngredients":
+      requireAdmin(ctx);
+      return mergeIngredients(tx, a.from, a.into);
     case "addPlan": {
       const recipeId = a.id ? await recipeIdOf(tx, a.id) : null;
       const text = a.text.trim() || null;
@@ -86,5 +98,7 @@ export async function runAction(tx: Tx, ctx: Ctx, a: Action): Promise<void> {
     case "clearBoughtExtra":
       await tx.shoppingExtra.deleteMany({ where: { householdId, bought: true } });
       return;
+    default:
+      return a satisfies never;
   }
 }

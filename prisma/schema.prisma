@@ -192,6 +192,7 @@ model Category {
 model Recipe {
   id                  Int         @id @default(autoincrement())
   legacyId            String?     @unique @map("legacy_id") // sheet "ID", e.g. "r009"
+  clientId            String?     @unique @map("client_id") @db.Uuid // id given by the phone that created it (works offline)
   name                String
   typeId              Int         @map("type_id") @db.SmallInt
   difficulty          Difficulty?
@@ -241,6 +242,7 @@ model RecipeStep {
   recipeId Int    @map("recipe_id")
   position Int    @db.SmallInt
   text     String
+  section  String? // "Sos": the part of the recipe it's for; consecutive steps share it
   recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@id([recipeId, position])
@@ -253,6 +255,8 @@ model RecipeIngredient {
   position     Int        @db.SmallInt
   ingredientId Int        @map("ingredient_id")
   qtyText      String?    @map("qty_text")
+  section      String? // "Sos": the part of the recipe it's for; consecutive rows share it
+  note         String? // e.g. an alternative: "lub domowa mieszanka: chili, kmin"
   recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
 

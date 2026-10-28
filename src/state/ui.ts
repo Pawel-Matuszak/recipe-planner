@@ -14,6 +14,8 @@ export const filters = signal<Filters>({ q: "", ...DEFAULT_FILTERS, ...(saved?.f
 export const setFilter = <K extends keyof Filters>(k: K, v: Filters[K]) => (filters.value = { ...filters.value, [k]: v });
 
 export const openRecipe = signal<string | null>(null);
+/** Admin: the "Nowy przepis" form is open. */
+export const newRecipe = signal(false);
 export const randomMode = signal(false);
 export const settingsOpen = signal(false);
 export const filtersOpen = signal(false);

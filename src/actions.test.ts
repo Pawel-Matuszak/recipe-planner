@@ -28,17 +28,25 @@ describe("applyAction", () => {
     applyAction(s, { action: "editRecipe", recipeId: "r002", desc: "Nowy opis", steps: "Krok 1\nKrok 2", ing: "Papryka: 2; cebula; szafran: szczypta" });
     const r = buildModel(s).recipes.find(x => x.id === "r002")!;
     expect(r.desc).toBe("Nowy opis");
-    expect(r.steps).toEqual(["Krok 1", "Krok 2"]);
+    expect(r.steps).toEqual([{ text: "Krok 1" }, { text: "Krok 2" }]);
     expect(r.ing.map(i => [i.name, i.qty?.raw ?? null])).toEqual([["papryka", "2"], ["cebula", null], ["szafran", "szczypta"]]);
     expect(r.ver).toBe(true);
     expect(s.pantry.find(p => p.name === "szafran")).toMatchObject({ dzial: "Inne", have: false });
+  });
+
+  it("keeps ingredient sections and notes", () => {
+    const s = demoState();
+    applyAction(s, { action: "editRecipe", recipeId: "r002", ing: "Papryka: 2; # Sos; cebula: 1 (lub szalotka: 2)" });
+    expect(s.recipes.find(x => x.id === "r002")!.ing).toEqual([
+      { name: "papryka", qty: "2" }, { name: "cebula", qty: "1", sec: "Sos", note: "lub szalotka: 2" },
+    ]);
   });
 
   it("leaves ingredients unchecked when only steps are edited", () => {
     const s = demoState();
     applyAction(s, { action: "editRecipe", recipeId: "r002", steps: "Jedyny krok" });
     const r = s.recipes.find(x => x.id === "r002")!;
-    expect(r.steps).toEqual(["Jedyny krok"]);
+    expect(r.steps).toEqual([{ text: "Jedyny krok" }]);
     expect(r.ver).toBe(false);
   });
 
@@ -100,6 +108,46 @@ describe("applyAction", () => {
     applyAction(s, { action: "setExtra", uid: s.extra[1].uid, bought: true });
     applyAction(s, { action: "clearBoughtExtra" });
     expect(s.extra.map(x => x.item)).toEqual(["papier do pieczenia"]);
+  });
+});
+
+describe("admin catalog actions", () => {
+  const recipe = { name: "Kasza", type: "Danie główne", diff: "Łatwy" as const, time: 20, cats: ["Kasza", "Kasza", " "], links: [], desc: "", steps: "Ugotuj", ing: "Kasza bulgur: 200 g; cebula", arch: false };
+
+  it("creates a recipe under the phone's id, once", () => {
+    const s = demoState();
+    const id = uid();
+    applyAction(s, { action: "createRecipe", recipeId: id, ...recipe });
+    applyAction(s, { action: "createRecipe", recipeId: id, ...recipe, name: "Inna" });
+    const r = buildModel(s).recipes.filter(x => x.id === id);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ name: "Kasza", cats: ["Kasza"], ver: true, steps: [{ text: "Ugotuj" }] });
+    expect(r[0].ing.map(i => i.name)).toEqual(["Kasza bulgur", "cebula"]);
+    expect(s.pantry.find(p => p.name === "Kasza bulgur")).toMatchObject({ dzial: "Inne", have: false });
+  });
+
+  it("edits any recipe field and leaves the rest", () => {
+    const s = demoState();
+    applyAction(s, { action: "editRecipe", recipeId: "r002", name: "Leczo z cukinią", arch: true, time: 0, diff: "" });
+    expect(s.recipes.find(r => r.id === "r002")).toMatchObject({ name: "Leczo z cukinią", arch: true, time: 0, diff: "", type: "Danie główne", ver: false });
+  });
+
+  it("renames a product everywhere, but not onto another product's name", () => {
+    const s = demoState();
+    applyAction(s, { action: "editIngredient", name: "boczek", newName: "Boczek wędzony", dzial: "Inne" });
+    expect(s.pantry.find(p => p.name === "Boczek wędzony")).toMatchObject({ dzial: "Inne" });
+    expect(s.recipes.find(r => r.id === "r001")!.ing.map(i => i.name)).toContain("Boczek wędzony");
+    applyAction(s, { action: "editIngredient", name: "cebula", newName: "Czosnek", dzial: "Inne" });
+    expect(s.pantry.find(p => p.name === "cebula")).toMatchObject({ dzial: "Warzywa i owoce" });
+  });
+
+  it("merges a product into another, keeping what the household had", () => {
+    const s = demoState();
+    applyAction(s, { action: "mergeIngredients", from: "cebula", into: "papryka" }); // cebula: mam
+    const m = buildModel(s);
+    expect(m.pantry.has("cebula")).toBe(false);
+    expect(m.pantry.get("papryka")).toMatchObject({ have: true });
+    expect(m.recipes.find(r => r.id === "r002")!.ing.filter(i => i.name === "papryka")).toHaveLength(2);
   });
 });
 

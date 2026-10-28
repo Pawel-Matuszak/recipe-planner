@@ -9,8 +9,10 @@ export interface Recipe {
   id: string;          // stable key used by the UI and the plan (database id; "r001" or "#Name" for sheet data)
   name: string; type: string; diff: string; done: boolean; arch: boolean;
   links: string[]; cats: string[]; time: number; ing: Ing[]; ver: boolean; rate: number; notes: string;
-  desc: string; steps: string[];
+  desc: string; steps: Step[];
 }
+/** One step of the method; `sec` is the part of the recipe it's for ("Sos"). */
+export interface Step { text: string; sec?: string }
 /** One product of the shared catalog, with this household's "Mam" / "Zawsze mam". */
 export interface PantryItem { name: string; dzial: string; have: boolean; always: boolean }
 /** `uid` is created on the phone, so a queued write can point at an entry the server hasn't seen yet. */
@@ -20,7 +22,10 @@ export interface Me { name: string; role: string }
 export interface Model { me: Me; recipes: Recipe[]; pantry: Map<string, PantryItem>; plan: PlanEntry[]; extra: ExtraItem[] }
 
 /** What the server sends (GET /api/state) and what the phone caches: the model as plain JSON, amounts unparsed. */
-export interface StateRecipe extends Omit<Recipe, "ing"> { ing: { name: string; qty: string | null }[] }
+export interface StateRecipe extends Omit<Recipe, "ing" | "steps"> {
+  ing: { name: string; qty: string | null; sec?: string; note?: string }[];
+  steps: (Step | string)[]; // plain strings in states the phone cached before steps had sections
+}
 export interface State { me: Me; recipes: StateRecipe[]; pantry: PantryItem[]; plan: PlanEntry[]; extra: ExtraItem[] }
 
 export const isAdmin = (m: { me: Me }) => m.me.role === "admin";
@@ -35,7 +40,8 @@ export const splitIng = (s: string) => String(s || "").split(";").map(x => x.tri
 
 /** `value` is in the canonical unit (g, ml, …); null when the amount is free text like "do smaku". */
 export interface Qty { value: number | null; unit: string; raw: string }
-export interface Ing { name: string; qty: Qty | null }
+/** `sec` is the recipe part it belongs to ("Sos"); `note` is free text like an alternative ("lub domowa mieszanka"). */
+export interface Ing { name: string; qty: Qty | null; sec?: string; note?: string }
 
 // canonical unit, factor to it, accepted spellings, display forms [1, 2-4, 5+]
 const UNITS: [string, number, string[], [string, string, string]][] = [
@@ -88,7 +94,63 @@ export function parseIng(s: string): Ing {
   return { name: s.slice(0, i).trim(), qty: parseQty(s.slice(i + 1)) };
 }
 
-const fmtNum = (n: number) => n.toLocaleString("pl-PL", { maximumFractionDigits: 2 });
+/** Index of the "(" that opens a bracket closing at the end of `s`, or -1. */
+function trailingBracket(s: string): number {
+  if (!s.endsWith(")")) return -1;
+  for (let i = s.length - 1, depth = 0; i >= 0; i--) {
+    if (s[i] === ")") depth++;
+    else if (s[i] === "(" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * The recipe editor's list: "# Sos" starts a section, and a bracket after the amount is a note
+ * ("przyprawa do taco: 1 opak. (lub domowa mieszanka: chili, kmin)"). A bracket with no colon before it is part of the name.
+ */
+export function parseIngList(s: string): Ing[] {
+  const out: Ing[] = [];
+  let sec: string | undefined;
+  for (const line of splitIng(s)) {
+    if (line.startsWith("#")) { sec = line.slice(1).trim() || undefined; continue; }
+    const b = trailingBracket(line), head = line.slice(0, b).trimEnd();
+    const hasNote = b >= 0 && head.includes(":");
+    const i = parseIng(hasNote ? head : line);
+    if (!norm(i.name)) continue;
+    const note = hasNote ? line.slice(b + 1, -1).trim() : "";
+    out.push({ ...i, ...(sec && { sec }), ...(note && { note }) });
+  }
+  return out;
+}
+
+/** Back to editor lines, with a "# Sekcja" line wherever the section changes. */
+export function ingLines(ing: Ing[]): string[] {
+  const out: string[] = [];
+  ing.forEach((i, k) => {
+    if (i.sec && i.sec !== ing[k - 1]?.sec) out.push(`# ${i.sec}`);
+    out.push(i.name + (i.qty ? `: ${i.qty.raw}` : "") + (i.note ? `${i.qty ? "" : ":"} (${i.note})` : ""));
+  });
+  return out;
+}
+
+/** The steps field: one step per line, "# Sos" starts a section; "1." / "2)" / "-" typed in front are dropped since the UI numbers steps itself. */
+export function parseSteps(s: string): Step[] {
+  const out: Step[] = [];
+  let sec: string | undefined;
+  for (const line of String(s || "").split(/\r?\n/).map(x => x.trim())) {
+    if (line.startsWith("#")) { sec = line.slice(1).trim() || undefined; continue; }
+    const text = line.replace(/^\d+[.)](?!\d)\s*|^[-*•]\s+/, "").trim();
+    if (text) out.push({ text, ...(sec && { sec }) });
+  }
+  return out;
+}
+
+/** Back to the steps field, with a "# Sekcja" line wherever the section changes. */
+export function stepLines(steps: Step[]): string[] {
+  return steps.flatMap((s, k) => (s.sec && s.sec !== steps[k - 1]?.sec ? [`# ${s.sec}`, s.text] : [s.text]));
+}
+
+const fmtNum =(n: number) => n.toLocaleString("pl-PL", { maximumFractionDigits: 2 });
 function fmtUnit(value: number, unit: string): string {
   if (unit === "g" && value >= 1000) return `${fmtNum(value / 1000)} kg`;
   if (unit === "ml" && value >= 1000) return `${fmtNum(value / 1000)} l`;
@@ -148,11 +210,10 @@ export function parseSheet(t: Tables, me: Me = { name: "", role: "user" }): Mode
       name, type: g(r, "type").trim() || "Inne", diff: g(r, "diff").trim(), done: bool(g(r, "done")), arch: bool(g(r, "arch")),
       links: g(r, "link").split(/,(?=\s*(?:https?:|www\.))/).map(s => s.trim()).filter(s => /^(https?:\/\/|www\.)/i.test(s)),
       cats: [g(r, "k1"), g(r, "k2")].map(s => s.trim()).filter(Boolean),
-      time: parseInt(g(r, "time"), 10) || 0, ing: splitIng(g(r, "ing")).map(parseIng), ver: bool(g(r, "ver")),
+      time: parseInt(g(r, "time"), 10) || 0, ing: parseIngList(g(r, "ing")), ver: bool(g(r, "ver")),
       rate: parseInt(g(r, "rate"), 10) || 0, notes: g(r, "notes"),
       desc: g(r, "desc").trim(),
-      // one step per line; a leading "1." / "2)" is dropped since the UI numbers steps itself
-      steps: g(r, "steps").split(/\r?\n/).map(s => s.trim().replace(/^\d+[.)]\s*/, "")).filter(Boolean),
+      steps: parseSteps(g(r, "steps")),
     });
   }
 
@@ -176,7 +237,9 @@ export const newId = () => crypto.randomUUID();
 export function buildModel(s: State): Model {
   return {
     me: s.me,
-    recipes: s.recipes.map(r => ({ ...r, ing: r.ing.map(i => ({ name: i.name, qty: i.qty ? parseQty(i.qty) : null })) })),
+    recipes: s.recipes.map(r => ({
+      ...r, ing: r.ing.map(i => ({ ...i, qty: i.qty ? parseQty(i.qty) : null })), steps: r.steps.map(x => (typeof x === "string" ? { text: x } : x)),
+    })),
     pantry: new Map(s.pantry.map(p => [norm(p.name), p])),
     plan: s.plan,
     extra: s.extra,
@@ -186,7 +249,7 @@ export function buildModel(s: State): Model {
 export function toState(m: Model): State {
   return {
     me: m.me,
-    recipes: m.recipes.map(r => ({ ...r, ing: r.ing.map(i => ({ name: i.name, qty: i.qty?.raw ?? null })) })),
+    recipes: m.recipes.map(r => ({ ...r, ing: r.ing.map(i => ({ ...i, qty: i.qty?.raw ?? null })) })),
     pantry: [...m.pantry.values()],
     plan: m.plan,
     extra: m.extra,

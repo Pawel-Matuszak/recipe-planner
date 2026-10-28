@@ -1,8 +1,8 @@
 import { useSignals } from "@preact/signals-react/runtime";
 import { useMemo } from "react";
 import { useModel } from "../data/sheet";
-import { filterRecipes, plural, type Model, type Recipe } from "../model";
-import { filters, openRecipe, randomMode } from "../state/ui";
+import { filterRecipes, isAdmin, plural, type Model, type Recipe } from "../model";
+import { filters, newRecipe, openRecipe, randomMode } from "../state/ui";
 import { Empty, MissBadge } from "./common";
 
 function RecipeCard({ m, r }: { m: Model; r: Recipe }) {
@@ -29,7 +29,10 @@ export function RecipesView() {
   if (!m) return <Empty>Wczytuję przepisy…</Empty>;
   return (
     <>
-      <p className="count">{list.length} {plural(list.length, "przepis", "przepisy", "przepisów")}{f.can ? " · od najmniejszej liczby braków" : ""}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="count">{list.length} {plural(list.length, "przepis", "przepisy", "przepisów")}{f.can ? " · od najmniejszej liczby braków" : ""}</p>
+        {isAdmin(m) && <button className="btn ghost" onClick={() => (newRecipe.value = true)}>+ Nowy przepis</button>}
+      </div>
       {list.length
         ? <div className="list">{list.map(r => <RecipeCard key={r.id} m={m} r={r} />)}</div>
         : <Empty>Nic nie pasuje do filtrów. Wyłącz któryś filtr albo zmień wyszukiwanie.</Empty>}

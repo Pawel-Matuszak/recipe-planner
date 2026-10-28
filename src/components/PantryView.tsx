@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 import { useSignals } from "@preact/signals-react/runtime";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { extraItems } from "../actions";
 import { useAct, useModel } from "../data/sheet";
 import { DZIALY, groupBy, isAdmin, norm, shoppingItems, type PantryItem } from "../model";
@@ -8,6 +8,7 @@ import { toast } from "../state/toast";
 import { onlyHave, pantryQuery } from "../state/ui";
 import { CheckRow, Empty } from "./common";
 import { Icon } from "./Icon";
+import { ProductEditor } from "./ProductEditor";
 
 export function PantryView() {
   useSignals();
@@ -15,6 +16,7 @@ export function PantryView() {
   const act = useAct();
   const [dzial, setDzial] = useState(DZIALY[0]);
   const [name, setName] = useState<string | null>(null); // null: follow the search box
+  const [editing, setEditing] = useState<string | null>(null); // admin: product being edited
   if (!m) return <Empty>Wczytuję spiżarnię…</Empty>;
   const q = norm(pantryQuery.value);
   const all = [...m.pantry.values()];
@@ -41,7 +43,11 @@ export function PantryView() {
         <button type="button" className="rowbtn" disabled={auto} aria-pressed={extra || auto} aria-label={`${p.name}: ${label}`} title={label}
           onClick={() => toggleShopping(p)}><Icon name={extra || auto ? "cartDone" : "cartAdd"} /></button>
         {/* the catalog is shared by all households, so only admins delete from it */}
-        {isAdmin(m) && <button type="button" className="rowbtn" aria-label={`Usuń ${p.name} z bazy`} title="Usuń z bazy składników" onClick={() => remove(p)}><Icon name="trash" /></button>}
+        {isAdmin(m) && <>
+          <button type="button" className="rowbtn" aria-label={`Edytuj ${p.name}`} title="Zmień nazwę, dział albo połącz" aria-expanded={editing === p.name}
+            onClick={e => { e.preventDefault(); setEditing(editing === p.name ? null : p.name); }}><Icon name="edit" /></button>
+          <button type="button" className="rowbtn" aria-label={`Usuń ${p.name} z bazy`} title="Usuń z bazy składników" onClick={() => remove(p)}><Icon name="trash" /></button>
+        </>}
       </>
     );
   };
@@ -64,9 +70,14 @@ export function PantryView() {
       {groupBy(shown, p => p.dzial).map(([d, group]) => (
         <div key={d} className="group">
           <h3>{d}</h3>
-          {group.sort((a, b) => a.name.localeCompare(b.name, "pl")).map(p => p.always
-            ? <CheckRow key={p.name} label={p.name} sub="zawsze mam" checked disabled>{actions(p)}</CheckRow>
-            : <CheckRow key={p.name} label={p.name} checked={p.have} onChange={c => act({ action: "setPantry", name: p.name, have: c })}>{actions(p)}</CheckRow>)}
+          {group.sort((a, b) => a.name.localeCompare(b.name, "pl")).map(p => (
+            <Fragment key={p.name}>
+              {p.always
+                ? <CheckRow label={p.name} sub="zawsze mam" checked disabled>{actions(p)}</CheckRow>
+                : <CheckRow label={p.name} checked={p.have} onChange={c => act({ action: "setPantry", name: p.name, have: c })}>{actions(p)}</CheckRow>}
+              {editing === p.name && <ProductEditor m={m} p={p} done={() => setEditing(null)} />}
+            </Fragment>
+          ))}
         </div>
       ))}
       <form className="panel" onSubmit={add}>
