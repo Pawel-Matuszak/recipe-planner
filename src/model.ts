@@ -276,6 +276,9 @@ export function toState(m: Model): State {
 }
 
 export type IngState = "have" | "miss" | "always";
+/** Recipes that list the product; the server refuses to delete a product while any do. */
+export const recipesUsing = (m: Model, name: string) => m.recipes.filter(r => r.ing.some(i => norm(i.name) === norm(name)));
+
 export function ingState(m: Model, name: string): IngState {
   const p = m.pantry.get(norm(name));
   if (!p) return "miss";

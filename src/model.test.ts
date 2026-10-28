@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSheet, filterRecipes, missingOf, parseDate, ingLines, parseIng, parseIngList, parseSteps, plural, stepLines, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
+import { parseSheet, filterRecipes, missingOf, parseDate, ingLines, parseIng, parseIngList, parseSteps, plural, recipesUsing, stepLines, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
 
 const MAIN_HEADER = ["Obrazek", "Nazwa", "Typ", "Trudność", "Było robione?", "Link", "Kategoria 1", "Kateogria 2", "Archived", "ID", "Czas (min)", "Składniki", "Składniki sprawdzone", "Ocena", "Notatki", "Opis", "Przepis"];
 const recipe = (id: string, name: string, ing: string, extra: Partial<Record<string, string>> = {}) => {
@@ -119,6 +119,15 @@ describe("missing ingredients", () => {
     const m = parseSheet(tables());
     const pool = randomPool(m, filterRecipes(m, F), true);
     expect(pool.map(r => r.name).sort()).toEqual(["Carbonara", "Nowe danie bez ID", "Pizza"]);
+  });
+});
+
+describe("recipesUsing", () => {
+  it("lists the recipes, archived ones too, that use a product, ignoring case and spaces", () => {
+    const m = parseSheet(tables());
+    expect(recipesUsing(m, " Cebula ").map(r => r.name)).toEqual(["Leczo"]);
+    expect(recipesUsing(m, "jajka").map(r => r.name)).toEqual(["Carbonara", "Omlet", "Nowe danie bez ID", "Stare"]);
+    expect(recipesUsing(m, "szafran")).toEqual([]);
   });
 });
 

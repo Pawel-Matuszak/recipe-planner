@@ -3,7 +3,7 @@ import { useSignals } from "@preact/signals-react/runtime";
 import { Fragment, useState } from "react";
 import { extraItems } from "../actions";
 import { useAct, useModel } from "../data/sheet";
-import { groupBy, isAdmin, norm, shoppingItems, type PantryItem } from "../model";
+import { groupBy, isAdmin, norm, recipesUsing, shoppingItems, type PantryItem } from "../model";
 import { toast } from "../state/toast";
 import { onlyHave, pantryQuery } from "../state/ui";
 import { CheckRow, Empty } from "./common";
@@ -32,6 +32,12 @@ export function PantryView() {
     else { act({ action: "addExtra", items: extraItems(p.name) }); toast(`Na liście zakupów: ${p.name}`); }
   };
   const remove = (p: PantryItem) => {
+    const used = recipesUsing(m, p.name);
+    if (used.length) {
+      const names = used.slice(0, 3).map(r => `„${r.name}”`).join(", ") + (used.length > 3 ? "…" : "");
+      toast(`„${p.name}” jest w przepisach: ${names}. Usuń go z nich albo połącz z innym składnikiem (ołówek).`);
+      return;
+    }
     if (!confirm(`Usunąć „${p.name}” z bazy składników? Zniknie ze spiżarni wszystkich gospodarstw.`)) return;
     act({ action: "removePantry", name: p.name });
     toast(`Usunięto: ${p.name}`);
