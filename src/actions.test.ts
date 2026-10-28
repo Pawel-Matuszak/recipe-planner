@@ -117,19 +117,32 @@ describe("admin catalog actions", () => {
   it("creates a recipe under the phone's id, once", () => {
     const s = demoState();
     const id = uid();
-    applyAction(s, { action: "createRecipe", recipeId: id, ...recipe });
-    applyAction(s, { action: "createRecipe", recipeId: id, ...recipe, name: "Inna" });
+    applyAction(s, { action: "createRecipe", recipeId: id, ...recipe, serv: 2 });
+    applyAction(s, { action: "createRecipe", recipeId: id, ...recipe, serv: 2, name: "Inna" });
     const r = buildModel(s).recipes.filter(x => x.id === id);
     expect(r).toHaveLength(1);
-    expect(r[0]).toMatchObject({ name: "Kasza", cats: ["Kasza"], ver: true, steps: [{ text: "Ugotuj" }] });
+    expect(r[0]).toMatchObject({ name: "Kasza", cats: ["Kasza"], ver: true, steps: [{ text: "Ugotuj" }], serv: 2 });
     expect(r[0].ing.map(i => i.name)).toEqual(["Kasza bulgur", "cebula"]);
     expect(s.pantry.find(p => p.name === "Kasza bulgur")).toMatchObject({ dzial: "Inne", have: false });
   });
 
   it("edits any recipe field and leaves the rest", () => {
     const s = demoState();
-    applyAction(s, { action: "editRecipe", recipeId: "r002", name: "Leczo z cukinią", arch: true, time: 0, diff: "" });
-    expect(s.recipes.find(r => r.id === "r002")).toMatchObject({ name: "Leczo z cukinią", arch: true, time: 0, diff: "", type: "Danie główne", ver: false });
+    applyAction(s, { action: "editRecipe", recipeId: "r002", name: "Leczo z cukinią", arch: true, time: 0, diff: "", serv: 4 });
+    expect(s.recipes.find(r => r.id === "r002")).toMatchObject({ name: "Leczo z cukinią", arch: true, time: 0, diff: "", type: "Danie główne", ver: false, serv: 4 });
+  });
+
+  it("portions: a create queued before they existed gets 0, an edit without them leaves them", () => {
+    const create = ActionSchema.parse({ action: "createRecipe", recipeId: uid(), ...recipe, cats: ["Kasza"] });
+    expect(create).toMatchObject({ serv: 0 });
+    expect(ActionSchema.parse({ action: "editRecipe", recipeId: "r002", name: "Leczo" })).not.toHaveProperty("serv");
+    expect(ActionSchema.safeParse({ action: "editRecipe", recipeId: "r002", serv: 101 }).success).toBe(false);
+  });
+
+  it("a state cached before portions existed reads as no portions", () => {
+    const s = demoState();
+    for (const r of s.recipes) delete r.serv;
+    expect(buildModel(s).recipes.every(r => r.serv === 0)).toBe(true);
   });
 
   it("renames a product everywhere, but not onto another product's name", () => {

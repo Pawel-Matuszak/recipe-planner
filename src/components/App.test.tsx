@@ -62,6 +62,23 @@ describe("App with demo data", () => {
     expect(screen.queryByText(/poza bazą/)).toBeNull();
   });
 
+  it("scales amounts once the recipe has portions", async () => {
+    renderApp();
+    fireEvent.click(await screen.findByText("Leczo"));
+    await screen.findByText("400 g");
+    expect(screen.queryByLabelText("Więcej porcji")).toBeNull(); // no portions given: nothing to scale from
+    fireEvent.click(screen.getByText("Edytuj"));
+    fireEvent.input(screen.getByLabelText("Porcje"), { target: { value: "4" } });
+    fireEvent.click(screen.getByText("Zapisz"));
+    fireEvent.click(await screen.findByLabelText("Więcej porcji"));
+    fireEvent.click(screen.getByLabelText("Więcej porcji"));
+    expect(await screen.findByText("6 porcji")).toBeTruthy();
+    expect(screen.getByText("600 g")).toBeTruthy();
+    expect(screen.getByText("3 łyżki")).toBeTruthy();
+    fireEvent.click(screen.getByText("przywróć"));
+    expect(await screen.findByText("400 g")).toBeTruthy();
+  });
+
   it("shows ingredient sections and notes", async () => {
     renderApp();
     fireEvent.click(await screen.findByText("Leczo"));

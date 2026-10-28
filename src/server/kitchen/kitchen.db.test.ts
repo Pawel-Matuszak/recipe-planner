@@ -102,12 +102,12 @@ describe("POST /api/actions", () => {
       {
         action: "createRecipe", recipeId: fresh, name: "Kasza z warzywami", type: "Obiad jednogarnkowy", diff: "Łatwy", time: 25,
         cats: ["Warzywa", "Nowe"], links: ["https://example.com/kasza"], desc: "Szybki obiad.", steps: "Ugotuj kaszę\nDodaj warzywa",
-        ing: "kasza bulgur: 200 g; Cukinia: 1; papryka", arch: false,
+        ing: "kasza bulgur: 200 g; Cukinia: 1; papryka", arch: false, serv: 3,
       },
-      { action: "createRecipe", recipeId: fresh, name: "Powtórka", type: "Deser", diff: "", time: 0, cats: [], links: [], desc: "", steps: "", ing: "", arch: false }, // retried: ignored
+      { action: "createRecipe", recipeId: fresh, name: "Powtórka", type: "Deser", diff: "", time: 0, cats: [], links: [], desc: "", steps: "", ing: "", arch: false, serv: 0 }, // retried: ignored
       { action: "addPlan", uid: uid(), date: "2030-01-01", meal: "", id: fresh, text: "" },
       { action: "setRecipeField", recipeId: fresh, field: "rate", value: 5 },
-      { action: "editRecipe", recipeId: leczo, name: "Leczo z cukinią", diff: "Średni", time: 45, cats: ["Mięso"], links: [], arch: true },
+      { action: "editRecipe", recipeId: leczo, name: "Leczo z cukinią", diff: "Średni", time: 45, cats: ["Mięso"], links: [], arch: true, serv: 4 },
       { action: "editRecipe", recipeId: fresh, steps: "Jeden krok" },
       { action: "editIngredient", name: "kasza bulgur", newName: "Kasza bulgur", dzial: "Makaron, ryż, kasze" },
       { action: "editIngredient", name: "pomidory", dzial: "Puszki i słoiki" },
@@ -123,7 +123,8 @@ describe("POST /api/actions", () => {
     }
     const after = await getState();
     expect(canonical(after)).toEqual(canonical(expected));
-    expect(after.recipes.find(r => r.id === fresh)).toMatchObject({ name: "Kasza z warzywami", rate: 5, ver: true, steps: [{ text: "Jeden krok" }] });
+    expect(after.recipes.find(r => r.id === fresh)).toMatchObject({ name: "Kasza z warzywami", rate: 5, ver: true, steps: [{ text: "Jeden krok" }], serv: 3 });
+    expect(after.recipes.find(r => r.id === leczo)).toMatchObject({ serv: 4 });
     expect(after.plan.some(p => p.id === fresh)).toBe(true);
   });
 

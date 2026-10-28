@@ -197,6 +197,7 @@ model Recipe {
   typeId              Int         @map("type_id") @db.SmallInt
   difficulty          Difficulty?
   timeMin             Int?        @map("time_min")
+  servings            Int?        @db.SmallInt // portions the amounts are written for
   description         String      @default("")
   archived            Boolean     @default(false)
   ingredientsVerified Boolean     @default(false) @map("ingredients_verified")

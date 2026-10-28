@@ -43,7 +43,7 @@ export async function importModel(tx: Tx, m: Model, to: ImportTarget): Promise<I
     const created = await tx.recipe.create({
       data: {
         legacyId: r.id.startsWith("#") ? null : r.id,
-        name: r.name, typeId: typeId.get(r.type)!, difficulty: DIFFICULTY[norm(r.diff)] ?? null, timeMin: r.time || null,
+        name: r.name, typeId: typeId.get(r.type)!, difficulty: DIFFICULTY[norm(r.diff)] ?? null, timeMin: r.time || null, servings: r.serv || null,
         description: r.desc, archived: r.arch, ingredientsVerified: r.ver, createdById: to.createdById,
         categories: { create: [...new Set(r.cats)].map(c => ({ categoryId: catId.get(c)! })) },
         links: { create: r.links.map((url, position) => ({ position, url })) },

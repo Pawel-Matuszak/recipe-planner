@@ -50,7 +50,13 @@ describe("parseSheet", () => {
   it("reads recipes by header, keeps rows without ID under their name", () => {
     const m = parseSheet(tables());
     expect(m.recipes.map(r => r.id)).toEqual(["r001", "r002", "r003", "#Nowe danie bez ID", "r004", "r005"]);
-    expect(m.recipes[0]).toMatchObject({ time: 20, done: true, cats: ["Makaron"] });
+    expect(m.recipes[0]).toMatchObject({ time: 20, done: true, cats: ["Makaron"], serv: 0 });
+  });
+
+  it("reads portions from an optional \"Porcje\" column", () => {
+    const t = tables();
+    t.main = t.main.map((r, k) => [...r, k === 0 ? "Porcje" : k === 1 ? "4" : ""]);
+    expect(parseSheet(t).recipes.slice(0, 2).map(r => r.serv)).toEqual([4, 0]);
   });
 
   it("finds columns even when they are reordered", () => {
@@ -179,6 +185,18 @@ describe("ingredient amounts", () => {
     expect(sum("30 g", "40 g + 2 łyżki")).toBe("70 g + 2 łyżki");
     expect(sumQty([null, parseIng("x: 100 g").qty])).toBe("100 g");
     expect(sumQty([null])).toBe("");
+  });
+
+  it("scales amounts for other portions", () => {
+    const scaled = (s: string, f: number) => sumQty([parseIng("x: " + s).qty], f);
+    expect(scaled("200 g", 1.5)).toBe("300 g");
+    expect(scaled("600 g", 2)).toBe("1,2 kg");
+    expect(scaled("3", 0.5)).toBe("1,5 szt.");
+    expect(scaled("4 jajka", 1 / 3)).toBe("1,25 jajka"); // non-metric units round to a quarter
+    expect(scaled("125 g", 1 / 3)).toBe("42 g"); // grams round to whole
+    expect(scaled("40 g + 2 łyżki", 2)).toBe("80 g + 4 łyżki");
+    expect(scaled("do smaku", 3)).toBe("do smaku");
+    expect(scaled("1 szczypta", 0.1)).toBe("0,1 szczypty"); // never rounded down to nothing
   });
 });
 

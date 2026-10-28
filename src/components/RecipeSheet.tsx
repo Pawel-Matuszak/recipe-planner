@@ -4,7 +4,7 @@ import { DIFFICULTIES, type Action } from "../actions";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { DZIALY, ingLines, ingState, isAdmin, newId, norm, parseIngList, similarIngredients, stepLines, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
+import { DZIALY, ingLines, ingState, isAdmin, newId, norm, parseIngList, plural, similarIngredients, stepLines, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { newRecipe, openRecipe, randomMode } from "../state/ui";
 import { MissBadge } from "./common";
@@ -22,6 +22,21 @@ function bySection<T extends { sec?: string }>(xs: T[]): { sec?: string; items: 
     groups.at(-1)!.items.push(x);
   }
   return groups;
+}
+
+const portionsLabel = (n: number) => `${n} ${plural(n, "porcja", "porcje", "porcji")}`;
+
+/** "− 4 porcje +": how many portions to show the amounts for; nothing is saved. */
+function Portions({ n, base, set }: { n: number; base: number; set: (n: number) => void }) {
+  const STEP_CLS = "btn size-9 p-0 text-lg";
+  return (
+    <div className="row ml-auto gap-1.5" role="group" aria-label="Porcje">
+      {n !== base && <button className="text-[.85rem] text-muted underline" onClick={() => set(base)}>przywróć</button>}
+      <button className={STEP_CLS} aria-label="Mniej porcji" disabled={n <= 1} onClick={() => set(n - 1)}>−</button>
+      <span className="min-w-[5.5rem] text-center font-bold tabular-nums" aria-live="polite">{portionsLabel(n)}</span>
+      <button className={STEP_CLS} aria-label="Więcej porcji" disabled={n >= 100} onClick={() => set(n + 1)}>+</button>
+    </div>
+  );
 }
 
 function QueueIt({ m, r }: { m: Model; r: Recipe }) {
@@ -103,7 +118,7 @@ function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setT
   );
 }
 
-const BLANK: Recipe = { id: "", name: "", type: "Danie główne", diff: "", done: false, arch: false, links: [], cats: [], time: 0, ing: [], ver: false, rate: 0, notes: "", desc: "", steps: [] };
+const BLANK: Recipe = { id: "", name: "", type: "Danie główne", diff: "", done: false, arch: false, links: [], cats: [], time: 0, ing: [], ver: false, rate: 0, notes: "", desc: "", steps: [], serv: 0 };
 const commaList = (s: string) => [...new Set(s.split(",").map(x => x.trim()).filter(Boolean))];
 type Difficulty = Extract<Action, { action: "createRecipe" }>["diff"];
 
@@ -116,6 +131,7 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
   const [type, setType] = useState(base.type);
   const [diff, setDiff] = useState(base.diff);
   const [time, setTime] = useState(base.time ? String(base.time) : "");
+  const [serv, setServ] = useState(base.serv ? String(base.serv) : "");
   const [cats, setCats] = useState(base.cats.join(", "));
   const [links, setLinks] = useState(base.links.join("\n"));
   const [arch, setArch] = useState(base.arch);
@@ -132,7 +148,7 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
     const newIng = lines(ing).join("; ");
     const data = {
       name: name.trim(), type: type.trim(), diff: diff as Difficulty, time: Math.max(0, parseInt(time, 10) || 0),
-      cats: commaList(cats), links: lines(links), arch, desc: desc.trim(), steps: lines(steps).join("\n"),
+      serv: Math.min(100, Math.max(0, parseInt(serv, 10) || 0)), cats: commaList(cats), links: lines(links), arch, desc: desc.trim(), steps: lines(steps).join("\n"),
     };
     if (!r) {
       const id = newId();
@@ -165,6 +181,9 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
           </label>
           <label className="grid w-28 gap-1 font-bold">Czas (min)
             <input className="field" type="number" inputMode="numeric" min={0} value={time} onChange={e => setTime(e.currentTarget.value)} />
+          </label>
+          <label className="grid w-24 gap-1 font-bold">Porcje
+            <input className="field" type="number" inputMode="numeric" min={0} max={100} value={serv} onChange={e => setServ(e.currentTarget.value)} />
           </label>
         </div>
         <datalist id="recipe-types">{types.map(t => <option key={t} value={t} />)}</datalist>
@@ -235,7 +254,11 @@ export function RecipeSheet() {
   const r = useRecipe(openRecipe.value);
   const act = useAct();
   const [editing, setEditing] = useState<string | null>(null); // id of the recipe being edited
+  const [portions, setPortions] = useState<{ key: string; n: number } | null>(null); // only for the recipe (and base) it was picked on
   if (!r || !m) return null;
+  const portionsKey = `${r.id}/${r.serv}`;
+  const shownPortions = portions?.key === portionsKey ? portions.n : r.serv;
+  const factor = r.serv > 0 ? shownPortions / r.serv : 1;
   // ingredients by section in recipe order; within each, what's missing first
   const groups = bySection(r.ing.map((i, k) => ({ i, k, st: ingState(m, i.name), sec: i.sec })));
   for (const g of groups) g.items.sort((a, b) => ORDER[a.st] - ORDER[b.st]);
@@ -269,6 +292,7 @@ export function RecipeSheet() {
       <div className="row mt-2.5">
         <MissBadge m={m} r={r} />
         {r.time > 0 && <span className="badge b-unk">{r.time} min</span>}
+        {r.serv > 0 && <span className="badge b-unk">{portionsLabel(r.serv)}</span>}
         {r.diff && <span className="badge b-unk">{r.diff}</span>}
         {r.ing.length > 0 && !r.ver && <span className="badge b-warn">składniki do sprawdzenia</span>}
         {r.arch && <span className="badge b-unk">w archiwum</span>}
@@ -284,7 +308,10 @@ export function RecipeSheet() {
       )}
 
       <div className="section">
-        <h3>Składniki{r.ing.length ? ` · ${r.ing.length}` : ""}</h3>
+        <div className="row">
+          <h3>Składniki{r.ing.length ? ` · ${r.ing.length}` : ""}</h3>
+          {r.serv > 0 && r.ing.length > 0 && <Portions n={shownPortions} base={r.serv} set={n => setPortions({ key: portionsKey, n })} />}
+        </div>
         {r.ing.length
           ? groups.map(g => (
             <div key={g.items[0].k} className="grid gap-2">
@@ -298,7 +325,7 @@ export function RecipeSheet() {
                     {st === "always" && <span className="block text-[.75rem] text-muted">zawsze mam</span>}
                     {!m.pantry.has(norm(i.name)) && <span className="block text-[.75rem] text-paprika">poza bazą{isAdmin(m) ? ", popraw w „Edytuj”" : ""}</span>}
                   </span>
-                  {i.qty && <span className="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty])}</span>}
+                  {i.qty && <span className="max-w-[40%] flex-none text-right text-muted tabular-nums">{sumQty([i.qty], factor)}</span>}
                 </button>
               ))}
             </div>

@@ -47,6 +47,7 @@ export async function editRecipe(tx: Tx, recipeId: number, e: RecipeEdit): Promi
       ...(e.type !== undefined && { typeId: await typeId(tx, e.type) }),
       ...(e.diff !== undefined && { difficulty: DIFFICULTY[e.diff] ?? null }),
       ...(e.time !== undefined && { timeMin: e.time || null }),
+      ...(e.serv !== undefined && { servings: e.serv || null }),
       ...(e.arch !== undefined && { archived: e.arch }),
       ...(e.desc !== undefined && { description: e.desc.trim() }),
       ...(e.ing !== undefined && { ingredientsVerified: true }),

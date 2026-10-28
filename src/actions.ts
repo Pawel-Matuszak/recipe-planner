@@ -23,6 +23,8 @@ const recipeData = {
   arch: z.boolean(),
 };
 const recipeDataPartial = z.object(recipeData).partial().shape;
+// portions the amounts are for, 0 = not given; kept out of `recipeData` so a default doesn't leak into `editRecipe`
+const serv = z.number().int().min(0).max(100);
 
 export const ActionSchema = z.discriminatedUnion("action", [
   // the household's own "Było robione" / "Ocena" ("" clears it) / "Notatki"
@@ -32,9 +34,10 @@ export const ActionSchema = z.discriminatedUnion("action", [
     z.object({ ...recipeField, field: z.literal("notes"), value: z.string().max(5000) }),
   ]),
   // admin only. `recipeId` is made on the phone, so the recipe can be planned or edited before it reaches the server
-  z.object({ action: z.literal("createRecipe"), recipeId: uid, ...recipeData }),
+  // (`serv` defaults to 0 for creates queued on a phone before recipes had portions)
+  z.object({ action: z.literal("createRecipe"), recipeId: uid, ...recipeData, serv: serv.default(0) }),
   // admin only. Omitted fields stay as they are; sending `ing` also marks the ingredients as checked
-  z.object({ action: z.literal("editRecipe"), recipeId: z.string(), ...recipeDataPartial }),
+  z.object({ action: z.literal("editRecipe"), recipeId: z.string(), ...recipeDataPartial, serv: serv.optional() }),
   // a name missing from the catalog becomes a new product (in "Inne" unless `dzial` says otherwise)
   z.object({ action: z.literal("setPantry"), name, have: z.boolean() }),
   // `have` defaults to true; a new product added from the recipe editor goes in as "nie mam"
@@ -74,7 +77,7 @@ export function applyAction(s: State, a: Action): void {
     case "createRecipe": {
       if (s.recipes.some(x => x.id === a.recipeId)) return;
       const { action: _, recipeId, ...data } = a;
-      s.recipes.push({ id: recipeId, name: "", type: "", diff: "", done: false, arch: false, links: [], cats: [], time: 0, ing: [], ver: false, rate: 0, notes: "", desc: "", steps: [] });
+      s.recipes.push({ id: recipeId, name: "", type: "", diff: "", done: false, arch: false, links: [], cats: [], time: 0, ing: [], ver: false, rate: 0, notes: "", desc: "", steps: [], serv: 0 });
       applyAction(s, { ...data, action: "editRecipe", recipeId });
       return;
     }
@@ -85,6 +88,7 @@ export function applyAction(s: State, a: Action): void {
       if (a.type !== undefined) r.type = a.type.trim();
       if (a.diff !== undefined) r.diff = a.diff;
       if (a.time !== undefined) r.time = a.time;
+      if (a.serv !== undefined) r.serv = a.serv;
       if (a.cats !== undefined) r.cats = uniq(a.cats);
       if (a.links !== undefined) r.links = uniq(a.links);
       if (a.arch !== undefined) r.arch = a.arch;

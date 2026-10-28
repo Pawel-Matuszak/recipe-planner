@@ -10,6 +10,7 @@ export interface Recipe {
   name: string; type: string; diff: string; done: boolean; arch: boolean;
   links: string[]; cats: string[]; time: number; ing: Ing[]; ver: boolean; rate: number; notes: string;
   desc: string; steps: Step[];
+  serv: number;        // portions the amounts are for; 0 = not given
 }
 /** One step of the method; `sec` is the part of the recipe it's for ("Sos"). */
 export interface Step { text: string; sec?: string }
@@ -22,9 +23,10 @@ export interface Me { name: string; role: string }
 export interface Model { me: Me; recipes: Recipe[]; pantry: Map<string, PantryItem>; plan: PlanEntry[]; extra: ExtraItem[] }
 
 /** What the server sends (GET /api/state) and what the phone caches: the model as plain JSON, amounts unparsed. */
-export interface StateRecipe extends Omit<Recipe, "ing" | "steps"> {
+export interface StateRecipe extends Omit<Recipe, "ing" | "steps" | "serv"> {
   ing: { name: string; qty: string | null; sec?: string; note?: string }[];
   steps: (Step | string)[]; // plain strings in states the phone cached before steps had sections
+  serv?: number; // missing in states the phone cached before recipes had portions
 }
 export interface State { me: Me; recipes: StateRecipe[]; pantry: PantryItem[]; plan: PlanEntry[]; extra: ExtraItem[] }
 
@@ -162,14 +164,21 @@ function fmtUnit(value: number, unit: string): string {
 // "40 g + 2 łyżki" in one cell is two amounts, so each part can add up with other recipes
 const parts = (q: Qty | null): Qty[] => (!q ? [] : q.raw.includes("+") ? q.raw.split("+").map(parseQty).filter(x => x !== null) : [q]);
 
-/** Adds amounts of the same ingredient; units of different kinds are listed side by side ("200 ml + 2 łyżki"). */
-export function sumQty(qs: (Qty | null)[]): string {
+// a scaled amount: whole grams / millilitres, quarters of anything else ("1,25 szt.", not "1,33 szt.")
+const roundScaled = (v: number, unit: string) => (unit === "g" || unit === "ml" ? Math.round(v) : Math.round(v * 4) / 4) || v;
+
+/**
+ * Adds amounts of the same ingredient; units of different kinds are listed side by side ("200 ml + 2 łyżki").
+ * `factor` scales the numbers (other portions than the recipe's); free text like "do smaku" stays as written.
+ */
+export function sumQty(qs: (Qty | null)[], factor = 1): string {
   const sums = new Map<string, number>(), texts = new Set<string>();
   for (const q of qs.flatMap(parts)) {
     if (q.value === null) texts.add(q.raw);
     else sums.set(q.unit, (sums.get(q.unit) ?? 0) + q.value);
   }
-  return [...[...sums].map(([u, v]) => fmtUnit(v, u)), ...texts].join(" + ");
+  const scaled = [...sums].map(([u, v]) => fmtUnit(factor === 1 ? v : roundScaled(v * factor, u), u));
+  return [...scaled, ...texts].join(" + ");
 }
 
 export function iso(d: Date): string {
@@ -196,7 +205,7 @@ export function parseSheet(t: Tables, me: Me = { name: "", role: "user" }): Mode
     k1: findCol(mh, h => /^kat\w*\s*1$/.test(h)), k2: findCol(mh, h => /^kat\w*\s*2$/.test(h)), arch: findCol(mh, h => h === "archived"),
     id: findCol(mh, h => h === "id"), time: findCol(mh, h => h.startsWith("czas")), ing: findCol(mh, h => h === "składniki"),
     ver: findCol(mh, h => h.startsWith("składniki sprawdz")), rate: findCol(mh, h => h === "ocena"), notes: findCol(mh, h => h === "notatki"),
-    desc: findCol(mh, h => h === "opis"), steps: findCol(mh, h => h === "przepis"),
+    desc: findCol(mh, h => h === "opis"), steps: findCol(mh, h => h === "przepis"), serv: findCol(mh, h => h.startsWith("porcj")),
   };
   const g = (r: Row, k: keyof typeof ix) => (ix[k] >= 0 ? String(r[ix[k]] ?? "") : "");
 
@@ -214,6 +223,7 @@ export function parseSheet(t: Tables, me: Me = { name: "", role: "user" }): Mode
       rate: parseInt(g(r, "rate"), 10) || 0, notes: g(r, "notes"),
       desc: g(r, "desc").trim(),
       steps: parseSteps(g(r, "steps")),
+      serv: parseInt(g(r, "serv"), 10) || 0,
     });
   }
 
@@ -239,6 +249,7 @@ export function buildModel(s: State): Model {
     me: s.me,
     recipes: s.recipes.map(r => ({
       ...r, ing: r.ing.map(i => ({ ...i, qty: i.qty ? parseQty(i.qty) : null })), steps: r.steps.map(x => (typeof x === "string" ? { text: x } : x)),
+      serv: r.serv ?? 0,
     })),
     pantry: new Map(s.pantry.map(p => [norm(p.name), p])),
     plan: s.plan,
