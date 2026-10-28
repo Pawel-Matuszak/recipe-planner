@@ -119,8 +119,29 @@
   }
 
   .panel { @apply mt-[18px] grid gap-2 rounded-card border border-line bg-surface p-3; }
-  .field { @apply w-full rounded-[10px] border border-line bg-bg px-3 py-2.5 text-base; }
-  .row > .field { @apply min-w-[120px] flex-1; }
+  .field { @apply w-full rounded-[10px] border border-line bg-bg px-3 py-2.5 text-base font-normal; }
+  .row > .field, .row > .combo { @apply min-w-[120px] flex-1; }
+
+  /* Combobox: a .field with a chevron and a list under it, the same for picked and typed values */
+  .combo {
+    @apply relative w-full;
+    & > .field { @apply pr-10; }
+    & > .field[readonly] { @apply cursor-pointer; }
+    & > .field[aria-expanded="true"] { @apply border-basil; }
+  }
+  .combo-toggle {
+    @apply absolute inset-y-0 right-0 grid w-10 place-items-center text-muted;
+    & svg { @apply size-5 transition-transform; }
+  }
+  .combo > .field[aria-expanded="true"] + .combo-toggle svg { @apply rotate-180; }
+  .combo-list {
+    @apply absolute inset-x-0 top-full z-10 mt-1 grid max-h-64 overflow-y-auto rounded-[10px] border border-line bg-surface py-1 font-normal shadow-lg;
+    & > li { @apply cursor-pointer px-3 py-2.5; }
+    & > li[aria-selected="true"] { @apply bg-basil-soft; }
+    & > li.current { @apply font-bold; }
+    & > li.new { @apply font-bold text-basil; }
+    & > li.new:not(:first-child) { @apply border-t border-line; }
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

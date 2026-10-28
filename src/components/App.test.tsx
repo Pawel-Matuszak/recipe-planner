@@ -54,7 +54,9 @@ describe("App with demo data", () => {
     fireEvent.input(field, { target: { value: "cebula: 2\npomidor: 4\npinsa" } });
     fireEvent.click(await screen.findByText("Zamień na „pomidory”"));
     expect(field.value).toBe("cebula: 2\npomidory: 4\npinsa");
-    fireEvent.change(screen.getByLabelText("Dział: pinsa"), { target: { value: "Pieczywo" } });
+    fireEvent.click(screen.getByLabelText("Dział: pinsa"));
+    fireEvent.click(screen.getByRole("option", { name: "Pieczywo" }));
+    expect((screen.getByLabelText("Dział: pinsa") as HTMLInputElement).value).toBe("Pieczywo");
     fireEvent.click(screen.getByText("Dodaj do bazy"));
     await waitFor(() => expect(screen.queryByText("Dodaj do bazy")).toBeNull());
     fireEvent.click(screen.getByText("Zapisz"));
@@ -117,5 +119,22 @@ describe("App with demo data", () => {
     expect(await screen.findByText("Dopisane ręcznie")).toBeTruthy();
     fireEvent.click(screen.getAllByText("Spiżarnia").at(-1)!);
     expect(await screen.findByText("Dodaj składnik")).toBeTruthy();
+  });
+
+  it("picks an existing category and adds a new one from the dropdown", async () => {
+    renderApp();
+    fireEvent.click(await screen.findByText("Carbonara"));
+    fireEvent.click(await screen.findByText("Edytuj"));
+    const field = screen.getByLabelText("Kategorie");
+    for (const chip of screen.queryAllByLabelText(/^Usuń: /)) fireEvent.click(chip);
+    fireEvent.click(field);
+    const existing = screen.getAllByRole("option")[0].textContent!;
+    fireEvent.click(screen.getAllByRole("option")[0]);
+    fireEvent.input(field, { target: { value: "Na grilla" } });
+    fireEvent.click(screen.getByRole("option", { name: "Dodaj kategorię „Na grilla”" }));
+    expect(screen.getByLabelText(`Usuń: ${existing}`)).toBeTruthy();
+    expect(screen.getByLabelText("Usuń: Na grilla")).toBeTruthy();
+    fireEvent.click(screen.getByText("Zapisz"));
+    expect(await screen.findByText(new RegExp(`· ${existing}, Na grilla$`))).toBeTruthy();
   });
 });

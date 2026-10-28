@@ -7,6 +7,7 @@ import { randomPick } from "../lib/random";
 import { DZIALY, ingLines, ingState, isAdmin, newId, norm, parseIngList, plural, similarIngredients, stepLines, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { newRecipe, openRecipe, randomMode } from "../state/ui";
+import { Combobox, MultiCombobox } from "./Combobox";
 import { MissBadge } from "./common";
 import { useQueueAdd } from "./PlanView";
 
@@ -105,9 +106,7 @@ function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setT
                   <span className="text-[.85rem] text-muted">Albo dodaj jako nowy składnik:</span>
                 </>}
                 <div className="row">
-                  <select className="field" aria-label={`Dział: ${n}`} value={dzial[norm(n)] ?? "Inne"} onChange={e => setDzial({ ...dzial, [norm(n)]: e.currentTarget.value })}>
-                    {DZIALY.map(d => <option key={d}>{d}</option>)}
-                  </select>
+                  <Combobox aria-label={`Dział: ${n}`} options={DZIALY} value={dzial[norm(n)] ?? "Inne"} onPick={v => setDzial({ ...dzial, [norm(n)]: v })} />
                   <button className="btn primary" onClick={() => add(n)}>Dodaj do bazy</button>
                 </div>
               </>}
@@ -119,7 +118,7 @@ function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setT
 }
 
 const BLANK: Recipe = { id: "", name: "", type: "Danie główne", diff: "", done: false, arch: false, links: [], cats: [], time: 0, ing: [], ver: false, rate: 0, notes: "", desc: "", steps: [], serv: 0 };
-const commaList = (s: string) => [...new Set(s.split(",").map(x => x.trim()).filter(Boolean))];
+const DIFF_OPTIONS = ["", ...DIFFICULTIES];
 type Difficulty = Extract<Action, { action: "createRecipe" }>["diff"];
 
 /** Admin form for a recipe: everything but the household's own done / rating / notes. Without `r` it creates a new one. */
@@ -132,7 +131,7 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
   const [diff, setDiff] = useState(base.diff);
   const [time, setTime] = useState(base.time ? String(base.time) : "");
   const [serv, setServ] = useState(base.serv ? String(base.serv) : "");
-  const [cats, setCats] = useState(base.cats.join(", "));
+  const [cats, setCats] = useState(base.cats);
   const [links, setLinks] = useState(base.links.join("\n"));
   const [arch, setArch] = useState(base.arch);
   const [desc, setDesc] = useState(base.desc);
@@ -141,6 +140,8 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
   const [next, setNext] = useState(""); // "add ingredient" box with pantry names as suggestions
   const types = [...new Set([...m.recipes.map(x => x.type), "Danie główne"])].sort((a, b) => a.localeCompare(b, "pl"));
   const allCats = [...new Set(m.recipes.flatMap(x => x.cats))].sort((a, b) => a.localeCompare(b, "pl"));
+  const pantryNames = [...m.pantry.values()].map(p => p.name).sort((a, b) => a.localeCompare(b, "pl"));
+  const addNext = () => { if (next.trim()) { setIng([...lines(ing), next.trim()].join("\n")); setNext(""); } };
 
   const save = () => {
     if (!name.trim()) return toast("Podaj nazwę przepisu");
@@ -148,7 +149,7 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
     const newIng = lines(ing).join("; ");
     const data = {
       name: name.trim(), type: type.trim(), diff: diff as Difficulty, time: Math.max(0, parseInt(time, 10) || 0),
-      serv: Math.min(100, Math.max(0, parseInt(serv, 10) || 0)), cats: commaList(cats), links: lines(links), arch, desc: desc.trim(), steps: lines(steps).join("\n"),
+      serv: Math.min(100, Math.max(0, parseInt(serv, 10) || 0)), cats, links: lines(links), arch, desc: desc.trim(), steps: lines(steps).join("\n"),
     };
     if (!r) {
       const id = newId();
@@ -171,13 +172,10 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
       <div className="section">
         <div className="row items-end">
           <label className="grid min-w-[140px] flex-1 gap-1 font-bold">Typ
-            <input className="field" list="recipe-types" value={type} onChange={e => setType(e.currentTarget.value)} autoComplete="off" />
+            <Combobox value={type} options={types} onInput={setType} onPick={setType} newLabel={q => `Nowy typ: „${q}”`} />
           </label>
           <label className="grid min-w-[120px] flex-1 gap-1 font-bold">Trudność
-            <select className="field" value={diff} onChange={e => setDiff(e.currentTarget.value)}>
-              <option value="">nie podano</option>
-              {DIFFICULTIES.map(d => <option key={d}>{d}</option>)}
-            </select>
+            <Combobox value={diff} options={DIFF_OPTIONS} onPick={setDiff} label={d => d || "nie podano"} />
           </label>
           <label className="grid w-28 gap-1 font-bold">Czas (min)
             <input className="field" type="number" inputMode="numeric" min={0} value={time} onChange={e => setTime(e.currentTarget.value)} />
@@ -186,12 +184,11 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
             <input className="field" type="number" inputMode="numeric" min={0} max={100} value={serv} onChange={e => setServ(e.currentTarget.value)} />
           </label>
         </div>
-        <datalist id="recipe-types">{types.map(t => <option key={t} value={t} />)}</datalist>
       </div>
       <div className="section">
         <h3><label htmlFor="ed-cats">Kategorie</label></h3>
-        <p className="text-[.85rem] text-muted">Po przecinku, np. „Makaron, Wegetariańskie”.{allCats.length ? ` Istniejące: ${allCats.join(", ")}.` : ""}</p>
-        <input id="ed-cats" className="field" value={cats} onChange={e => setCats(e.currentTarget.value)} autoComplete="off" />
+        <MultiCombobox id="ed-cats" values={cats} options={allCats} onChange={setCats} placeholder="Wybierz albo wpisz nową"
+          newLabel={q => `Dodaj kategorię „${q}”`} />
       </div>
       <div className="section">
         <h3><label htmlFor="ed-links">Linki</label></h3>
@@ -206,12 +203,12 @@ export function RecipeEditor({ m, r, done }: { m: Model; r?: Recipe; done: (id?:
         <h3><label htmlFor="ed-ing">Składniki</label></h3>
         <p className="text-[.85rem] text-muted">Jeden w linii, ilość po dwukropku, np. „makaron: 200 g”. Linia „# Sos” zaczyna sekcję, a uwagę dopisz w nawiasie na końcu, np. „przyprawa: 1 opak. (lub domowa mieszanka)”.</p>
         <textarea id="ed-ing" className={FIELD_CLS} rows={rowsFor(ing, 5)} value={ing} onChange={e => setIng(e.currentTarget.value)} />
-        <form className="row mt-2" onSubmit={e => { e.preventDefault(); if (next.trim()) { setIng([...lines(ing), next.trim()].join("\n")); setNext(""); } }}>
-          <input className="field flex-1" list="pantry-names" aria-label="Nowy składnik" placeholder="np. masło: 50 g" autoComplete="off"
-            value={next} onChange={e => setNext(e.currentTarget.value)} />
+        <form className="row mt-2" onSubmit={e => { e.preventDefault(); addNext(); }}>
+          {/* picking a pantry name leaves room for the amount */}
+          <Combobox aria-label="Nowy składnik" placeholder="np. masło: 50 g" value={next} options={pantryNames}
+            onInput={setNext} onPick={n => setNext(n + ": ")} onEnter={addNext} />
           <button className="btn ghost" type="submit">Dodaj</button>
         </form>
-        <datalist id="pantry-names">{[...m.pantry.values()].map(p => <option key={p.name} value={p.name} />)}</datalist>
         <UnknownIngredients m={m} text={ing} setText={setIng} />
       </div>
       <div className="section">
