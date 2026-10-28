@@ -276,6 +276,16 @@ describe("matching ingredients to the pantry", () => {
     expect(s("twarog")).toBe("twaróg");
   });
 
+  it("finds the same words in another form (singular, plural, case)", () => {
+    const more = new Map(pantry).set("ogórki kiszone", { name: "ogórki kiszone", dzial: "Inne", have: false, always: false });
+    expect(suggestIngredient("ogórek kiszony", more)).toBe("ogórki kiszone");
+    expect(suggestIngredient("kiszony ogórek", more)).toBe("ogórki kiszone");
+    expect(similarIngredients("ogórek świeży", more)).toEqual(["ogórki kiszone"]);
+    expect(s("pomidorki koktajlowe")).toBeNull();
+    expect(similarIngredients("pomidorki koktajlowe", pantry)).toEqual(["pomidory"]);
+    expect(similarIngredients("kaszanka", new Map(pantry).set("kasza", { name: "kasza", dzial: "Inne", have: false, always: false }))).toEqual([]);
+  });
+
   it("finds typos in longer names only", () => {
     expect(s("pomidor")).toBe("pomidory");
     expect(s("makron")).toBe("makaron");

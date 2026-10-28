@@ -282,6 +282,24 @@ const PL: Record<string, string> = { ą: "a", ć: "c", ę: "e", ł: "l", ń: "n"
 export const foldPl = (s: string) => norm(s).replace(/[ąćęłńóśźż]/g, c => PL[c]).replace(/\s+/g, " ");
 const wordsOf = (s: string) => foldPl(s).split(" ").filter(Boolean).sort();
 
+/** Two forms of one word: equal, or a shared stem of 4+ letters with at most 2 letters of ending each ("ogorek" ~ "ogorki"). */
+function sameWord(a: string, b: string): boolean {
+  if (a === b) return true;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i >= 4 && a.length - i <= 2 && b.length - i <= 2;
+}
+
+/** Every word of one name pairs up with a form of a word of the other ("ogorek kiszony" ~ "ogorki kiszone"). */
+function sameWords(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = [...b];
+  return a.every(x => {
+    const j = left.findIndex(y => sameWord(x, y));
+    return j >= 0 && left.splice(j, 1).length > 0;
+  });
+}
+
 function lev(a: string, b: string): number {
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
@@ -294,7 +312,8 @@ function lev(a: string, b: string): number {
 
 /**
  * Pantry name that is surely the same product as an ingredient that isn't in the pantry: the same words in any
- * order without Polish letters, or a typo. Null when it is in the pantry or nothing is that close; one name
+ * order without Polish letters, the same words in another form ("ogórek kiszony" → "ogórki kiszone"), or a typo.
+ * Null when it is in the pantry or nothing is that close; one name
  * containing the other ("jogurt" in "jogurt naturalny") is left to `similarIngredients`, as it may be another product.
  */
 export function suggestIngredient(name: string, pantry: Map<string, PantryItem>): string | null {
@@ -303,6 +322,8 @@ export function suggestIngredient(name: string, pantry: Map<string, PantryItem>)
   const items = [...pantry.values()].map(p => ({ name: p.name, w: wordsOf(p.name) }));
   const same = items.find(p => p.w.join(" ") === key);
   if (same) return same.name;
+  const form = items.find(p => sameWords(wordsOf(name), p.w));
+  if (form) return form.name;
 
   const maxTypo = key.length <= 4 ? 0 : key.length <= 8 ? 1 : 2;
   let best: { name: string; d: number } | null = null;
@@ -324,7 +345,8 @@ export function similarIngredients(name: string, pantry: Map<string, PantryItem>
   return [...pantry.values()]
     .map(p => {
       const pw = wordsOf(p.name);
-      return { name: p.name, head: foldPl(p.name).split(" ")[0] === first ? 1 : 0, shared: w.filter(x => pw.includes(x)).length };
+      const head = sameWord(foldPl(p.name).split(" ")[0], first) ? 1 : 0;
+      return { name: p.name, head, shared: w.filter(x => pw.some(y => sameWord(x, y))).length };
     })
     .filter(p => p.shared > 0)
     .sort((a, b) => b.head - a.head || b.shared - a.shared || a.name.length - b.name.length || a.name.localeCompare(b.name, "pl"))
