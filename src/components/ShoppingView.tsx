@@ -38,7 +38,7 @@ export function ShoppingView() {
       <div className="section mt-0">
         <h3>Brakuje do dań z listy</h3>
         {!items.length && <Empty>{anyQueued ? "Masz wszystko do dań z listy do ugotowania." : "Na liście do ugotowania nie ma dań z przepisów. Dodaj je w zakładce Plan."}</Empty>}
-        {groupBy(items, i => i.dzial).map(([dzial, group]) => (
+        {groupBy(items, i => i.dzial, m.dzialy).map(([dzial, group]) => (
           <div key={dzial} className="group">
             <h3>{dzial}</h3>
             {group.sort((a, b) => a.name.localeCompare(b.name, "pl")).map(it => (

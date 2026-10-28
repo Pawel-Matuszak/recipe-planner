@@ -20,7 +20,8 @@ export interface PantryItem { name: string; dzial: string; have: boolean; always
 export interface PlanEntry { uid: string; date: string; meal: string; id: string; text: string; cooked: boolean }
 export interface ExtraItem { uid: string; item: string; bought: boolean }
 export interface Me { name: string; role: string }
-export interface Model { me: Me; recipes: Recipe[]; pantry: Map<string, PantryItem>; plan: PlanEntry[]; extra: ExtraItem[] }
+/** `dzialy`: the store sections in the database, in shopping-list order. */
+export interface Model { me: Me; recipes: Recipe[]; pantry: Map<string, PantryItem>; plan: PlanEntry[]; extra: ExtraItem[]; dzialy: string[] }
 
 /** What the server sends (GET /api/state) and what the phone caches: the model as plain JSON, amounts unparsed. */
 export interface StateRecipe extends Omit<Recipe, "ing" | "steps" | "serv"> {
@@ -28,10 +29,14 @@ export interface StateRecipe extends Omit<Recipe, "ing" | "steps" | "serv"> {
   steps: (Step | string)[]; // plain strings in states the phone cached before steps had sections
   serv?: number; // missing in states the phone cached before recipes had portions
 }
-export interface State { me: Me; recipes: StateRecipe[]; pantry: PantryItem[]; plan: PlanEntry[]; extra: ExtraItem[] }
+export interface State {
+  me: Me; recipes: StateRecipe[]; pantry: PantryItem[]; plan: PlanEntry[]; extra: ExtraItem[];
+  dzialy?: string[]; // missing in states the phone cached before sections came from the database
+}
 
 export const isAdmin = (m: { me: Me }) => m.me.role === "admin";
 
+/** The default store sections, in shopping order: what an import creates and a fallback for old cached states. */
 export const DZIALY = ["Warzywa i owoce", "Mięso i ryby", "Nabiał i jajka", "Pieczywo", "Makaron, ryż, kasze", "Puszki i słoiki", "Sosy i przyprawy", "Pieczenie", "Inne"];
 
 export const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
@@ -239,7 +244,8 @@ export function parseSheet(t: Tables, me: Me = { name: "", role: "user" }): Mode
 
   const extra = t.extra.slice(1).map(r => ({ uid: newId(), item: String(r[0] ?? "").trim(), bought: bool(r[1]) })).filter(x => x.item);
 
-  return { me, recipes, pantry, plan, extra };
+  const dzialy = [...new Set([...DZIALY, ...[...pantry.values()].map(p => p.dzial)])];
+  return { me, recipes, pantry, plan, extra, dzialy };
 }
 
 export const newId = () => crypto.randomUUID();
@@ -254,6 +260,7 @@ export function buildModel(s: State): Model {
     pantry: new Map(s.pantry.map(p => [norm(p.name), p])),
     plan: s.plan,
     extra: s.extra,
+    dzialy: s.dzialy?.length ? s.dzialy : DZIALY,
   };
 }
 
@@ -264,6 +271,7 @@ export function toState(m: Model): State {
     pantry: [...m.pantry.values()],
     plan: m.plan,
     extra: m.extra,
+    dzialy: m.dzialy,
   };
 }
 
@@ -408,11 +416,12 @@ export function shoppingItems(m: Model): ShoppingNeed[] {
   }));
 }
 
-export function groupBy<T>(items: T[], key: (t: T) => string): [string, T[]][] {
+/** Groups by section, sections in `order` (unknown ones last, by name). */
+export function groupBy<T>(items: T[], key: (t: T) => string, order: readonly string[] = DZIALY): [string, T[]][] {
   const g = new Map<string, T[]>();
   for (const it of items) { const k = key(it); (g.get(k) ?? g.set(k, []).get(k)!).push(it); }
-  const order = (k: string) => { const i = DZIALY.indexOf(k); return i < 0 ? 99 : i; };
-  return [...g.entries()].sort((a, b) => order(a[0]) - order(b[0]) || a[0].localeCompare(b[0], "pl"));
+  const rank = (k: string) => { const i = order.indexOf(k); return i < 0 ? order.length : i; };
+  return [...g.entries()].sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0], "pl"));
 }
 
 export function plural(n: number, one: string, few: string, many: string): string {

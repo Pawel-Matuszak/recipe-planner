@@ -1,7 +1,7 @@
 import { useSignals } from "@preact/signals-react/runtime";
 import { useState } from "react";
 import { useAct } from "../data/sheet";
-import { DZIALY, norm, type Model, type PantryItem } from "../model";
+import { norm, type Model, type PantryItem } from "../model";
 import { toast } from "../state/toast";
 
 /** Admin: rename a product, move it to another section, or merge it into another product (for duplicates and typos). */
@@ -11,7 +11,7 @@ export function ProductEditor({ m, p, done }: { m: Model; p: PantryItem; done: (
   const [name, setName] = useState(p.name);
   const [dzial, setDzial] = useState(p.dzial);
   const [into, setInto] = useState("");
-  const sections = [...new Set([...DZIALY, p.dzial])];
+  const sections = [...new Set([...m.dzialy, p.dzial])];
   const uses = m.recipes.filter(r => r.ing.some(i => norm(i.name) === norm(p.name))).length;
   const taken = norm(name) !== norm(p.name) && m.pantry.has(norm(name));
   const target = m.pantry.get(norm(into));

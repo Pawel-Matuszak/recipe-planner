@@ -4,7 +4,7 @@ import { applyAction, cloneState, extraItems, type Action } from "../../actions"
 import * as actionsRoute from "../../app/api/actions/route";
 import * as stateRoute from "../../app/api/state/route";
 import { demoTables } from "../../mock";
-import { parseSheet, type State } from "../../model";
+import { DZIALY, parseSheet, type State } from "../../model";
 import { createDb, truncateAll } from "../db";
 import { importModel } from "../import/fromModel";
 import { call, signUp } from "../test/http";
@@ -49,6 +49,7 @@ describe("GET /api/state", () => {
       ing: expect.arrayContaining([{ name: "makaron", qty: "200 g" }, { name: "pieprz", qty: null }]),
     });
     expect(s.pantry.find(p => p.name === "pieprz")).toMatchObject({ dzial: "Sosy i przyprawy", always: true });
+    expect(s.dzialy).toEqual(DZIALY);
     expect(s.plan.map(p => p.text || s.recipes.find(r => r.id === p.id)!.name).sort())
       .toEqual(["Carbonara", "Chili con carne", "Leczo", "Overnight oats", "kanapki z szynką"]);
   });
@@ -133,6 +134,16 @@ describe("POST /api/actions", () => {
     const r = await send({ action: "editIngredient", name: "cebula", newName: "Czosnek" });
     expect(r.status).toBe(409);
     expect(r.json.message).toContain("Połącz");
+  });
+
+  it("files a new product in the chosen section, and refuses a section that isn't in the database", async () => {
+    await db.user.update({ where: { email: "ania@example.com" }, data: { role: "admin" } });
+    expect((await send({ action: "addPantry", name: "kajzerka", dzial: "Pieczywo", have: false })).status).toBe(200);
+    expect((await send({ action: "addPantry", name: "kmin", dzial: "Przyprawy", have: false })).status).toBe(400);
+    expect((await send({ action: "editIngredient", name: "kajzerka", dzial: "Przyprawy" })).status).toBe(400);
+    const s = await getState();
+    expect(s.pantry.find(p => p.name === "kajzerka")).toMatchObject({ dzial: "Pieczywo" });
+    expect(s.pantry.some(p => p.name === "kmin")).toBe(false);
   });
 
   it("lets only admins edit recipes and delete products", async () => {

@@ -4,7 +4,7 @@ import { DIFFICULTIES, type Action } from "../actions";
 import { useAct, useModel, useRecipe } from "../data/sheet";
 import { linkLabel } from "../lib/format";
 import { randomPick } from "../lib/random";
-import { DZIALY, ingLines, ingState, isAdmin, newId, norm, parseIngList, plural, similarIngredients, stepLines, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
+import { ingLines, ingState, isAdmin, newId, norm, parseIngList, plural, similarIngredients, stepLines, suggestIngredient, sumQty, type IngState, type Model, type Recipe } from "../model";
 import { toast } from "../state/toast";
 import { newRecipe, openRecipe, randomMode } from "../state/ui";
 import { Combobox, MultiCombobox } from "./Combobox";
@@ -106,7 +106,7 @@ function UnknownIngredients({ m, text, setText }: { m: Model; text: string; setT
                   <span className="text-[.85rem] text-muted">Albo dodaj jako nowy składnik:</span>
                 </>}
                 <div className="row">
-                  <Combobox aria-label={`Dział: ${n}`} options={DZIALY} value={dzial[norm(n)] ?? "Inne"} onPick={v => setDzial({ ...dzial, [norm(n)]: v })} />
+                  <Combobox aria-label={`Dział: ${n}`} options={m.dzialy} value={dzial[norm(n)] ?? "Inne"} onPick={v => setDzial({ ...dzial, [norm(n)]: v })} />
                   <button className="btn primary" onClick={() => add(n)}>Dodaj do bazy</button>
                 </div>
               </>}

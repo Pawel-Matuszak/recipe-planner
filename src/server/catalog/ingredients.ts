@@ -5,10 +5,12 @@ import { DomainError } from "../errors";
 
 const OTHER = "Inne";
 
+/** The section's id; a blank name means "Inne". A section that isn't in the database is refused, not filed under "Inne". */
 async function departmentId(tx: Tx, name: string): Promise<number> {
-  const d = await tx.department.findUnique({ where: { name: name.trim() } })
-    ?? await tx.department.findUnique({ where: { name: OTHER } })
-    ?? await tx.department.create({ data: { name: OTHER, sortOrder: 99 } });
+  const n = name.trim() || OTHER;
+  const d = await tx.department.findUnique({ where: { name: n } })
+    ?? (n === OTHER ? await tx.department.create({ data: { name: OTHER, sortOrder: 99 } }) : null);
+  if (!d) throw new DomainError("invalid", `Nie ma działu „${n}”. Wybierz dział z listy.`);
   return d.id;
 }
 

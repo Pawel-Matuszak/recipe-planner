@@ -3,7 +3,7 @@ import { useSignals } from "@preact/signals-react/runtime";
 import { Fragment, useState } from "react";
 import { extraItems } from "../actions";
 import { useAct, useModel } from "../data/sheet";
-import { DZIALY, groupBy, isAdmin, norm, shoppingItems, type PantryItem } from "../model";
+import { groupBy, isAdmin, norm, shoppingItems, type PantryItem } from "../model";
 import { toast } from "../state/toast";
 import { onlyHave, pantryQuery } from "../state/ui";
 import { CheckRow, Empty } from "./common";
@@ -14,7 +14,7 @@ export function PantryView() {
   useSignals();
   const m = useModel();
   const act = useAct();
-  const [dzial, setDzial] = useState(DZIALY[0]);
+  const [dzial, setDzial] = useState<string | null>(null); // null: the first section
   const [name, setName] = useState<string | null>(null); // null: follow the search box
   const [editing, setEditing] = useState<string | null>(null); // admin: product being edited
   if (!m) return <Empty>Wczytuję spiżarnię…</Empty>;
@@ -23,6 +23,7 @@ export function PantryView() {
   const shown = all.filter(p => (!q || norm(p.name).includes(q)) && (!onlyHave.value || p.have || p.always));
   const haveN = all.filter(p => p.have).length;
   const value = name ?? pantryQuery.value;
+  const section = dzial ?? m.dzialy[0];
   const onExtra = new Set(m.extra.filter(x => !x.bought).map(x => norm(x.item)));
   const forRecipes = new Set(shoppingItems(m).map(i => norm(i.name)));
 
@@ -57,7 +58,7 @@ export function PantryView() {
     const n = value.trim();
     if (!n) return;
     if (m.pantry.has(n.toLowerCase())) { toast(`„${n}” już jest w spiżarni`); return; }
-    act({ action: "addPantry", name: n, dzial });
+    act({ action: "addPantry", name: n, dzial: section });
     pantryQuery.value = "";
     setName(null);
     toast(`Dodano: ${n}`);
@@ -67,7 +68,7 @@ export function PantryView() {
     <>
       <p className="count">Masz {haveN} z {all.length} składników. Szare pozycje zawsze są w domu i nie liczą się jako braki.</p>
       {!shown.length && <Empty>Nie ma takiego składnika. Dodaj go poniżej.</Empty>}
-      {groupBy(shown, p => p.dzial).map(([d, group]) => (
+      {groupBy(shown, p => p.dzial, m.dzialy).map(([d, group]) => (
         <div key={d} className="group">
           <h3>{d}</h3>
           {group.sort((a, b) => a.name.localeCompare(b.name, "pl")).map(p => (
@@ -84,8 +85,8 @@ export function PantryView() {
         <h3>Dodaj składnik</h3>
         <div className="row">
           <input className="field" placeholder="Nazwa, np. kasza bulgur" value={value} autoComplete="off" onChange={e => setName(e.currentTarget.value)} />
-          <select className="field" aria-label="Dział" value={dzial} onChange={e => setDzial(e.currentTarget.value)}>
-            {DZIALY.map(d => <option key={d}>{d}</option>)}
+          <select className="field" aria-label="Dział" value={section} onChange={e => setDzial(e.currentTarget.value)}>
+            {m.dzialy.map(d => <option key={d}>{d}</option>)}
           </select>
         </div>
         <button className="btn primary" type="submit">Dodaj jako „mam”</button>

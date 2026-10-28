@@ -7,7 +7,7 @@ import type { SessionUser } from "../identity/auth";
 export const DIFFICULTY_LABEL = { easy: "Łatwy", medium: "Średni", hard: "Trudny" } as const;
 
 export async function readState(db: Tx, householdId: string, user: SessionUser): Promise<State> {
-  const [recipes, ingredients, plan, extra] = await Promise.all([
+  const [recipes, ingredients, plan, extra, departments] = await Promise.all([
     db.recipe.findMany({
       orderBy: { name: "asc" },
       include: {
@@ -22,6 +22,7 @@ export async function readState(db: Tx, householdId: string, user: SessionUser):
     db.ingredient.findMany({ include: { department: true, pantry: { where: { householdId } } } }),
     db.planEntry.findMany({ where: { householdId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
     db.shoppingExtra.findMany({ where: { householdId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
+    db.department.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { name: true } }),
   ]);
 
   const recipeKey = new Map(recipes.map(r => [r.id, publicId(r)]));
@@ -42,5 +43,6 @@ export async function readState(db: Tx, householdId: string, user: SessionUser):
       meal: p.meal, id: p.recipeId ? recipeKey.get(p.recipeId) ?? "" : "", text: p.text ?? "", cooked: p.cooked,
     })),
     extra: extra.map(x => ({ uid: x.id, item: x.item, bought: x.bought })),
+    dzialy: departments.map(d => d.name),
   };
 }
