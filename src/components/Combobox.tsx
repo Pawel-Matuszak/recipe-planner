@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { norm } from "../model";
+import { foldPl, norm } from "../model";
 
 const MAX_SHOWN = 50; // the pantry can be long; typing narrows it anyway
 
@@ -32,8 +32,8 @@ export function Combobox({ value, options, onPick, onInput, newLabel, label = o 
   const free = !!onInput;
   useEffect(() => { if (open && active >= 0) document.getElementById(`${listId}-${active}`)?.scrollIntoView?.({ block: "nearest" }); }, [open, active, listId]);
 
-  const q = typed ? norm(value) : "";
-  const matches = q ? options.filter(o => norm(label(o)).includes(q)).sort((a, b) => +!norm(label(a)).startsWith(q) - +!norm(label(b)).startsWith(q)) : [...options];
+  const q = typed ? foldPl(value) : ""; // "smietana" finds "śmietana"
+  const matches = q ? options.filter(o => foldPl(label(o)).includes(q)).sort((a, b) => +!foldPl(label(a)).startsWith(q) - +!foldPl(label(b)).startsWith(q)) : [...options];
   const rows = matches.slice(0, MAX_SHOWN).map(o => ({ value: o, text: label(o), isNew: false }));
   const t = value.trim();
   if (free && newLabel && t && !options.some(o => norm(o) === norm(t))) rows.push({ value: t, text: newLabel(t), isNew: true });

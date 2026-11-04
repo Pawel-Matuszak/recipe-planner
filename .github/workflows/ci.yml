@@ -33,4 +33,8 @@ jobs:
       - run: npm ci # also generates the Prisma client (postinstall)
       - run: npm run typecheck
       - run: npm test
+      # build runs `prisma migrate deploy` (for Vercel); here it applies the migrations to the CI database
       - run: npm run build
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          DIRECT_URL: ${{ env.TEST_DATABASE_URL }}
