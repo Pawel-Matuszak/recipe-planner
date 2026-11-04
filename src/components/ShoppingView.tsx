@@ -3,9 +3,10 @@ import { useSignals } from "@preact/signals-react/runtime";
 import { useState } from "react";
 import { extraItems } from "../actions";
 import { useAct, useModel } from "../data/sheet";
-import { groupBy, norm, shoppingItems } from "../model";
+import { groupBy, norm, pantryMatch, shoppingItems } from "../model";
 import { toast } from "../state/toast";
 import { boughtNeeds } from "../state/ui";
+import { Combobox } from "./Combobox";
 import { CheckRow, Empty } from "./common";
 
 export function ShoppingView() {
@@ -27,10 +28,18 @@ export function ShoppingView() {
     toast(`Dodano do spiżarni: ${boughtItems.length}`);
   };
 
-  const addExtra = (e: FormEvent) => {
-    e.preventDefault();
-    const v = extra.trim();
-    if (v) { act({ action: "addExtra", items: extraItems(v) }); setExtra(""); }
+  const addExtra = (v: string) => {
+    if (v.trim()) act({ action: "addExtra", items: extraItems(v.trim()) });
+    setExtra("");
+  };
+  const onExtra = new Set(m.extra.filter(x => !x.bought).map(x => norm(x.item)));
+  const suggestions = [...m.pantry.values()].map(p => p.name).filter(n => !onExtra.has(norm(n))).sort((a, b) => a.localeCompare(b, "pl"));
+  const matchOf = (item: string) => pantryMatch(item, m.pantry);
+  const clearBoughtExtra = () => {
+    const owned = [...new Set(m.extra.filter(x => x.bought).map(x => matchOf(x.item)).filter(n => n !== null))];
+    for (const name of owned) act({ action: "setPantry", name, have: true });
+    act({ action: "clearBoughtExtra" });
+    if (owned.length) toast(`Dodano do spiżarni: ${owned.length}`);
   };
 
   return (
@@ -52,14 +61,20 @@ export function ShoppingView() {
       </div>
       <div className="section">
         <h3>Dopisane ręcznie</h3>
-        <form className="flex gap-2" onSubmit={addExtra}>
-          <input className="search-input" placeholder="Np. papier do pieczenia" autoComplete="off" enterKeyHint="done" value={extra} onChange={e => setExtra(e.currentTarget.value)} />
+        <form className="flex gap-2" onSubmit={(e: FormEvent) => { e.preventDefault(); addExtra(extra); }}>
+          <Combobox className="min-w-0 flex-1" aria-label="Dopisz do listy" placeholder="Produkt ze spiżarni albo cokolwiek" value={extra} options={suggestions}
+            onInput={setExtra} onPick={addExtra} onEnter={() => addExtra(extra)} newLabel={q => `Dopisz „${q}”`} />
           <button className="iconbtn primary" type="submit">Dodaj</button>
         </form>
         {m.extra.length
-          ? m.extra.map(x => <CheckRow key={x.uid} label={x.item} checked={x.bought} done={x.bought} onChange={c => act({ action: "setExtra", uid: x.uid, bought: c })} />)
+          ? m.extra.map(x => {
+              const match = matchOf(x.item);
+              const sub = match && (norm(match) === norm(x.item) ? "→ spiżarnia" : `→ spiżarnia: ${match}`);
+              return <CheckRow key={x.uid} label={x.item} sub={sub || undefined} checked={x.bought} done={x.bought} onChange={c => act({ action: "setExtra", uid: x.uid, bought: c })} />;
+            })
           : <Empty>Pusto. Dopisz coś powyżej albo dodaj składnik z zakładki Spiżarnia.</Empty>}
-        {m.extra.some(x => x.bought) && <button className="btn ghost" onClick={() => act({ action: "clearBoughtExtra" })}>Usuń kupione z listy</button>}
+        {m.extra.some(x => x.bought) && <button className="btn ghost" onClick={clearBoughtExtra}>Usuń kupione z listy</button>}
+        {m.extra.some(x => matchOf(x.item)) && <p className="count">Kupione produkty ze spiżarni (→) po usunięciu z listy trafiają do niej jako „mam”.</p>}
       </div>
     </>
   );

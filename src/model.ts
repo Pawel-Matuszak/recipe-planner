@@ -365,6 +365,15 @@ export function similarIngredients(name: string, pantry: Map<string, PantryItem>
     .map(p => p.name);
 }
 
+/**
+ * Pantry product a hand-written shopping item stands for: the same name, else a sure match from `suggestIngredient`
+ * ("maslo" → "masło"). Null for things that aren't products ("papier do pieczenia") or are only similar ones.
+ */
+export function pantryMatch(name: string, pantry: Map<string, PantryItem>): string | null {
+  if (!norm(name)) return null;
+  return pantry.get(norm(name))?.name ?? suggestIngredient(name, pantry);
+}
+
 /** Ingredients of a recipe that aren't in the pantry at all (typos, new products). */
 export const unknownOf = (m: Model, r: Recipe) => r.ing.filter(i => !m.pantry.has(norm(i.name)));
 

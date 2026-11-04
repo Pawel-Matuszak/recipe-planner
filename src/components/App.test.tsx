@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { DEMO_URL, setConfig } from "../data/backend";
 import { createQueryClient } from "../data/queryClient";
@@ -119,6 +119,53 @@ describe("App with demo data", () => {
     expect(await screen.findByText("Dopisane ręcznie")).toBeTruthy();
     fireEvent.click(screen.getAllByText("Spiżarnia").at(-1)!);
     expect(await screen.findByText("Dodaj składnik")).toBeTruthy();
+  });
+
+  describe("hand-added shopping items", () => {
+    const openShopping = async () => {
+      renderApp();
+      await screen.findByText("Carbonara");
+      fireEvent.click(screen.getByText("Zakupy"));
+      return (await screen.findByLabelText("Dopisz do listy")) as HTMLInputElement;
+    };
+    const handSection = () => screen.getByText("Dopisane ręcznie").closest(".section") as HTMLElement;
+    const pantryHas = async (name: string) => {
+      fireEvent.click(screen.getAllByText("Spiżarnia").at(-1)!);
+      const row = (await screen.findByText(name, { selector: ".lbl" })).closest("label")!;
+      return row.querySelector("input")!.checked;
+    };
+
+    it("suggests pantry products, ignoring Polish letters, and adds the picked one with its catalog name", async () => {
+      const field = await openShopping();
+      fireEvent.input(field, { target: { value: "smietan" } });
+      expect(screen.getByRole("option", { name: "śmietanka 30%" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("option", { name: "śmietana" }));
+      expect(await within(handSection()).findByText("śmietana")).toBeTruthy();
+      expect(field.value).toBe("");
+    });
+
+    it("adds free text that isn't a product, and clearing it leaves the pantry alone", async () => {
+      const field = await openShopping();
+      fireEvent.input(field, { target: { value: "folia aluminiowa" } });
+      fireEvent.click(screen.getByRole("button", { name: "Dodaj" }));
+      const row = (await within(handSection()).findByText("folia aluminiowa")).closest("label")!;
+      expect(row.querySelector(".sub")).toBeNull();
+      fireEvent.click(row.querySelector("input")!);
+      fireEvent.click(await within(handSection()).findByText("Usuń kupione z listy"));
+      await waitFor(() => expect(within(handSection()).queryByText("folia aluminiowa")).toBeNull());
+    });
+
+    it("marks a bought item as owned in the pantry once cleared, matching a misspelled name", async () => {
+      const field = await openShopping();
+      fireEvent.input(field, { target: { value: "smietana" } });
+      fireEvent.submit(field.closest("form")!);
+      const row = (await within(handSection()).findByText("smietana")).closest("label")!;
+      expect(row.textContent).toContain("→ spiżarnia: śmietana");
+      fireEvent.click(row.querySelector("input")!);
+      fireEvent.click(await within(handSection()).findByText("Usuń kupione z listy"));
+      await waitFor(() => expect(within(handSection()).queryByText("smietana")).toBeNull());
+      expect(await pantryHas("śmietana")).toBe(true);
+    });
   });
 
   it("picks an existing category and adds a new one from the dropdown", async () => {

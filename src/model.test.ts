@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSheet, filterRecipes, missingOf, parseDate, ingLines, parseIng, parseIngList, parseSteps, plural, recipesUsing, stepLines, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
+import { parseSheet, filterRecipes, missingOf, pantryMatch, parseDate, ingLines, parseIng, parseIngList, parseSteps, plural, recipesUsing, stepLines, randomPool, shoppingItems, similarIngredients, suggestIngredient, sumQty, unknownOf, type Filters, type Tables } from "./model";
 
 const MAIN_HEADER = ["Obrazek", "Nazwa", "Typ", "Trudność", "Było robione?", "Link", "Kategoria 1", "Kateogria 2", "Archived", "ID", "Czas (min)", "Składniki", "Składniki sprawdzone", "Ocena", "Notatki", "Opis", "Przepis"];
 const recipe = (id: string, name: string, ing: string, extra: Partial<Record<string, string>> = {}) => {
@@ -322,6 +322,15 @@ describe("matching ingredients to the pantry", () => {
     expect(similarIngredients("żółty ser cheddar", pantry)).toEqual(["ser żółty"]);
     expect(similarIngredients("pinsa", pantry)).toEqual([]);
     expect(similarIngredients("jogurt grecki", pantry)).toEqual([]);
+  });
+
+  it("links a shopping-list item to its pantry product: same name, then a sure match, never a merely similar one", () => {
+    expect(pantryMatch(" Masło ", pantry)).toBe("masło");
+    expect(pantryMatch("maslo orzechowe", pantry)).toBe("masło orzechowe");
+    expect(pantryMatch("pomidor", pantry)).toBe("pomidory");
+    expect(pantryMatch("jogurt naturalny", pantry)).toBeNull();
+    expect(pantryMatch("papier do pieczenia", pantry)).toBeNull();
+    expect(pantryMatch("  ", pantry)).toBeNull();
   });
 
   it("lists recipe ingredients that aren't in the pantry", () => {
